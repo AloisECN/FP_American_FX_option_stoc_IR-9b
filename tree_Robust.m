@@ -56,7 +56,38 @@ for i = 0:N-1
 end
 
 %Second Part the 2D tree 
+%simple U-tree
 
+U0 = 1/sigma_S * log(S0)
+U_tree = zeros(N+1, N+1);
+for i = 0:N
+    for j = 0:i
+        U_tree[i+1, j+1] = U0 + (2*j - i) * sqrt(h)
+    end
+end
+
+S_tree = exp(sigma_S * U_tree)
+
+% Compte as independant 
+
+jd = NaN(N+1,N+1, N+1);
+ju = NaN(N+1,N+1, N+1);
+p_S  = NaN(N+1,N+1, N+1);
+
+for i = 0:N-1
+    for j = 0:i
+        for k = 0:i
+            drift = 
+
+
+            num = 
+            den = 
+            p_r(i+1, j+1, k+1) = max(0, min(1, num/den));
+        end
+    end 
+end
+
+% Introduce the covariance struct 
 
 
 end 
