@@ -68,7 +68,7 @@ end
 
 S_tree = exp(sigma_S * U_tree)
 
-% Compte as independant 
+% Compute as independant 
 
 jd = NaN(N+1,N+1, N+1);
 ju = NaN(N+1,N+1, N+1);
@@ -88,6 +88,8 @@ for i = 0:N-1
 end
 
 % Introduce the covariance struct 
-
+qd = NaN(N+1,N+1, N+1);
+qu = NaN(N+1,N+1, N+1);
+p_S  = NaN(N+1,N+1, N+1);
 
 end 
