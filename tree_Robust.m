@@ -77,19 +77,51 @@ p_S  = NaN(N+1,N+1, N+1);
 for i = 0:N-1
     for j = 0:i
         for k = 0:i
-            drift = 
 
+            drift = S_tree(i,j) * r_tree(i, k);
+            threshold = S_tree(i,j) + drift * h;
+            j_star_candidates = 0 : j;           
+            mask_d = S_tree(i+1, j_star_candidates + 1) <= threshold; 
+            if any(mask_d)
+                jd(i+1,j+1, k+1) = max(j_star_candidates(mask_d));
+            else
+                jd(i+1,j+1, k+1) = NaN;  % no valid k* found
+            end
 
-            num = 
-            den = 
-            p_r(i+1, j+1, k+1) = max(0, min(1, num/den));
+            j_star_candidates = (j + 1) : (i + 1);
+            mask_u = S_tree(i+1, j_star_candidates + 1) >= threshold; 
+
+            if any(mask_u)
+                ju(i+1,j+1, k+1) = min(j_star_candidates(mask_u));
+            else
+                ju(i+1,j+1, k+1) = NaN;  % no valid k* found
+            end
+
+            num = drift * h + S_tree(i,j) - S_tree(i+1 , jd(i+1, j+1 , k+1));
+
+            den = S_tree(i+1 , ju(i+1, j+1 , k+1)) - S_tree(i+1 , jd(i+1, j+1 , k+1));
+             
+            p_S(i+1, j+1, k+1) = max(0, min(1, num/den));
         end
     end 
 end
 
 % Introduce the covariance struct 
+
 qd = NaN(N+1,N+1, N+1);
 qu = NaN(N+1,N+1, N+1);
 p_S  = NaN(N+1,N+1, N+1);
 
+for i = 0:N-1
+    for j = 0:i
+        for k = 0:i
+
+
+
+
+        end
+    end 
 end 
+
+
+end % of the fuction 
