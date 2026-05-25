@@ -1,4 +1,4 @@
-function price  = tree_Robust(N, h, kappa,zeta0, sigma_S, sigma_r, S0, X0, ro, I, yearFrac)
+function []  = tree_Robust(N, h, kappa,zeta0, sigma_S, sigma_r, S0, X0, ro, I, yearFrac)
 
 % Implement tree with the robust method
 % inputs
@@ -108,20 +108,63 @@ end
 
 % Introduce the covariance struct 
 
-qd = NaN(N+1,N+1, N+1);
-qu = NaN(N+1,N+1, N+1);
-p_S  = NaN(N+1,N+1, N+1);
+% Transition probabilities for the bivariate tree (covariance matching)
+q_ju_ku = NaN(N+1, N+1, N+1);
+q_ju_kd = NaN(N+1, N+1, N+1);
+q_jd_ku = NaN(N+1, N+1, N+1);
+q_jd_kd = NaN(N+1, N+1, N+1);
 
 for i = 0:N-1
     for j = 0:i
         for k = 0:i
 
+            % Recover proba from prev trees
+            ju_temp = ju(i+1, j+1, k+1);
+            jd_temp = jd(i+1, j+1, k+1);
+            ku_temp = ku_r(i+1, k+1);
+            kd_temp = kd_r(i+1, k+1);
 
+            p_hat = p_S(i+1, j+1, k+1);  
+            p     = p_r(i+1, k+1);       
 
+            % Current node values
+            S_cur = S_tree(i+1, j+1);
+            r_cur = r_tree(i+1, k+1);
+
+            % some allocation for clarity
+            S_ju = S_tree(i+2, ju_temp + 1);
+            S_jd = S_tree(i+2, jd_temp + 1);
+            r_ku = r_tree(i+2, ku_temp + 1);
+            r_kd = r_tree(i+2, kd_temp + 1);
+
+            % The four "m" terms from eq. (22)
+            m_ju_ku = (S_ju - S_cur) * (r_ku - r_cur);
+            m_ju_kd = (S_ju - S_cur) * (r_kd - r_cur);
+            m_jd_ku = (S_jd - S_cur) * (r_ku - r_cur);
+            m_jd_kd = (S_jd - S_cur) * (r_kd - r_cur);
+
+            % RHS of eq. 4 in system (21)
+            C = ro * sigma_r * sigma_S * S_cur * h;
+
+            % Solve for q_ju_ku from the 4th equation
+            
+            denom = m_ju_ku - m_ju_kd - m_jd_ku + m_jd_kd;
+            numer = C - m_ju_kd * p_hat - m_jd_ku * p - m_jd_kd * (1 - p_hat - p);
+
+            a = numer / denom;
+
+            % Recover the other three probabilities
+            b = p_hat - a;   % q(ju, kd)
+            c = p     - a;   % q(jd, ku)
+            d = 1 - p_hat - p + a;  % q(jd, kd)
+
+            q_ju_ku(i+1, j+1, k+1) = max(0, min(1, a));
+            q_ju_kd(i+1, j+1, k+1) = max(0, min(1, b));
+            q_jd_ku(i+1, j+1, k+1) = max(0, min(1, c));
+            q_jd_kd(i+1, j+1, k+1) = max(0, min(1, d));
 
         end
-    end 
-end 
-
+    end
+end
 
 end % of the fuction 
