@@ -182,5 +182,9 @@ fprintf('\nRepricing American Option with calibrated volatility (N = %d)...\n', 
 % Execute backward induction for the American option on the new tree
 americanPrice_calib = backwardInduction(S_tree_calib, N, K_atm, p_r, p_hat_S_calib, kd_r, jd_S_calib, df_HW);
 
+% 4. Display Final Comparison and Early Exercise Premium
+fprintf('\n--- FINAL RESULTS (T=2Y, ATM) ---\n');
+fprintf('European Option Price (Market Target): %.6f\n', europeanPrice_Target);
 fprintf('American Option Price (CRR Tree):      %.6f\n', americanPrice_calib);
+fprintf('Early Exercise Premium:                %.6f\n', americanPrice_calib - europeanPrice_Target);
 
