@@ -1,5 +1,6 @@
 %% MAIN SCRIPT: Project - American FX Option with Stochastic Interest Rate
 clc; clear all; close all;
+warning('off')
 
 %% 0. MARKET DATA INGESTION & INITIAL CALIBRATION
 dates = { '12/Apr/2016'; '13/Apr/2016'; '19/Apr/2016'; '12/May/2016'; ...

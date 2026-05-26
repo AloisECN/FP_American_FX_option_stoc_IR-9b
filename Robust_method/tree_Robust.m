@@ -5,6 +5,7 @@ function [S_tree, q_ju_ku, q_ju_kd, q_jd_ku, q_jd_kd, ju_S, jd_S, ku_r, kd_r, df
 r_tree = zeros(N+1, N+1);
 for i = 0:N
     for k = 0:i
+        %original zeta tree independant from S
         val = zeta0 + (2*k - i) * sqrt(h);
         if val >= 0
             r_tree(i+1, k+1) = (val * sigma_r)^2 / 4;
@@ -14,19 +15,21 @@ for i = 0:N
     end
 end
 
-% --- SELF-CONSISTENT DISCOUNT FACTORS for the Robust r_tree ---
-% df_rob(i,k) = exp(-r_tree(i,k)*h), used in backward induction at node (i,k)
+% Compute discount factors
 df_rob = exp(-r_tree * h);   % (N+1)x(N+1), same shape as r_tree
 
 kd_r = NaN(N+1, N+1);
 ku_r = NaN(N+1, N+1);
 p_r  = NaN(N+1, N+1);
 
+% Building probabilities equation 13 , 14 , 15 from Apploloni 
+
 for i = 0:N-1
     for k = 0:i
-        drift     = -kappa * r_tree(i+1, k+1);
+        drift     = -kappa * r_tree(i+1, k+1); % adapted to our HW process
         threshold = r_tree(i+1, k+1) + drift * h;
 
+        %Eq 13
         cands_d = 0:k;
         mask_d  = r_tree(i+2, cands_d + 1) <= threshold;
         if any(mask_d)
@@ -35,6 +38,7 @@ for i = 0:N-1
             kd_r(i+1, k+1) = 0;
         end
 
+        %Eq 14
         cands_u = (k+1):(i+1);
         mask_u  = r_tree(i+2, cands_u + 1) >= threshold;
         if any(mask_u)
@@ -43,17 +47,16 @@ for i = 0:N-1
             ku_r(i+1, k+1) = i+1;
         end
 
+        %Eq 15
         num = drift * h + r_tree(i+1, k+1) - r_tree(i+2, kd_r(i+1,k+1) + 1);
         den = r_tree(i+2, ku_r(i+1,k+1) + 1) - r_tree(i+2, kd_r(i+1,k+1) + 1);
-        if den ~= 0
-            p_r(i+1, k+1) = max(0, min(1, num/den));
-        else
-            p_r(i+1, k+1) = 0.5;
-        end
+        p_r(i+1, k+1) = max(0, min(1, num/den));
+
     end
 end
 
-%% Part 2: FX Tree
+%% Part 2: FX Tree 
+% Eq 16 and 17 
 U0     = log(S0) / sigma_S;
 U_tree = zeros(N+1, N+1);
 for i = 0:N
@@ -62,6 +65,8 @@ for i = 0:N
     end
 end
 S_tree = exp(sigma_S * U_tree);
+
+%Computing probabilities
 
 jd_S = NaN(N+1, N+1, N+1);
 ju_S = NaN(N+1, N+1, N+1);
@@ -72,9 +77,10 @@ for i = 0:N-1
         for k = 0:i
             S_cur     = S_tree(i+1, j+1);
             r_cur     = r_tree(i+1, k+1);
-            drift     = S_cur * r_cur;
+            drift     = S_cur * r_cur; % drift change => normal as r_t changes too
             threshold = S_cur + drift * h;
 
+            %Eq 18
             cands_d = 0:j;
             mask_d  = S_tree(i+2, cands_d + 1) <= threshold;
             if any(mask_d)
@@ -83,6 +89,7 @@ for i = 0:N-1
                 jd_S(i+1, j+1, k+1) = 0;
             end
 
+            %Eq 19
             cands_u = (j+1):(i+1);
             mask_u  = S_tree(i+2, cands_u + 1) >= threshold;
             if any(mask_u)
@@ -91,18 +98,17 @@ for i = 0:N-1
                 ju_S(i+1, j+1, k+1) = i+1;
             end
 
+            %Eq 20
             num = drift * h + S_cur - S_tree(i+2, jd_S(i+1,j+1,k+1) + 1);
             den = S_tree(i+2, ju_S(i+1,j+1,k+1) + 1) - S_tree(i+2, jd_S(i+1,j+1,k+1) + 1);
-            if den ~= 0
-                p_S(i+1, j+1, k+1) = max(0, min(1, num/den));
-            else
-                p_S(i+1, j+1, k+1) = 0.5;
-            end
+            p_S(i+1, j+1, k+1) = max(0, min(1, num/den));
+        
         end
     end
 end
 
-%% Part 3: Joint probabilities with ENFORCED normalization
+%% Part 3: Joint probabilities
+
 q_ju_ku = NaN(N+1, N+1, N+1);
 q_ju_kd = NaN(N+1, N+1, N+1);
 q_jd_ku = NaN(N+1, N+1, N+1);
@@ -111,13 +117,13 @@ q_jd_kd = NaN(N+1, N+1, N+1);
 for i = 0:N-1
     for j = 0:i
         for k = 0:i
+            %Declare all varibales for clarity 
+            %Not memory fficient but who cares 
+
             ju_t  = ju_S(i+1, j+1, k+1);
             jd_t  = jd_S(i+1, j+1, k+1);
             ku_t  = ku_r(i+1, k+1);
             kd_t  = kd_r(i+1, k+1);
-
-            p_hat = p_S(i+1, j+1, k+1);
-            p     = p_r(i+1, k+1);
 
             S_cur = S_tree(i+1, j+1);
             r_cur = r_tree(i+1, k+1);
@@ -127,42 +133,37 @@ for i = 0:N-1
             r_ku = r_tree(i+2, ku_t + 1);
             r_kd = r_tree(i+2, kd_t + 1);
 
+            %Eq 22
             m_ju_ku = (S_ju - S_cur) * (r_ku - r_cur);
             m_ju_kd = (S_ju - S_cur) * (r_kd - r_cur);
             m_jd_ku = (S_jd - S_cur) * (r_ku - r_cur);
             m_jd_kd = (S_jd - S_cur) * (r_kd - r_cur);
+            
+            %Eq 21
+            %RHS of (21)
+            p_hat_i_j_k = p_S(i+1, j+1, k+1); % first
+            p_i_k     = p_r(i+1, k+1); %second
+            C = rho * sigma_r *  sqrt(r_cur) * sigma_S * S_cur * h ; %fourth
+            
+            %Solving the system explicitly yields
+            
+            A = [ 1,1,0,0; ...
+                1,0,1,0; ...
+                1,1,1,1; ...
+                m_ju_ku, m_ju_kd, m_jd_ku, m_jd_kd ];
 
-            C     = rho * sigma_r * sigma_S * S_cur * h;
-            denom = m_ju_ku - m_ju_kd - m_jd_ku + m_jd_kd;
-            numer = C - m_ju_kd*p_hat - m_jd_ku*p - m_jd_kd*(1 - p_hat - p);
+            % det(A) = -m_{ju\_ku} + m_{ju\_kd} + m_{jd\_ku} - m_{jd\_kd)
+            
+            B = [ p_hat_i_j_k ; p_i_k ; 1 ; C ];
 
-            if abs(denom) > 1e-14
-                a = numer / denom;
-            else
-                a = p_hat * p;  % independence fallback
-            end
+            q_vec = lsqnonneg(A, B);
 
-            % Recover the four joint probabilities
-            a = p_hat * p;     % q(ju, ku)  — fallback to independence when covariance solve is ill-conditioned
-            b = p_hat - a;     % q(ju, kd)
-            c = p     - a;     % q(jd, ku)
-            d = 1 - p_hat - p + a; % q(jd, kd)
-
-            % --- CRITICAL: floor at 0, then RENORMALIZE to enforce sum = 1 ---
-            q_raw = max(0, [a, b, c, d]);
-            s = sum(q_raw);
-            if s > 1e-14
-                q_raw = q_raw / s;
-            else
-                q_raw = [p_hat*p, p_hat*(1-p), (1-p_hat)*p, (1-p_hat)*(1-p)];
-            end
-
-            q_ju_ku(i+1,j+1,k+1) = q_raw(1);
-            q_ju_kd(i+1,j+1,k+1) = q_raw(2);
-            q_jd_ku(i+1,j+1,k+1) = q_raw(3);
-            q_jd_kd(i+1,j+1,k+1) = q_raw(4);
+            q_ju_ku(i+1,j+1,k+1) = q_vec(1);
+            q_ju_kd(i+1,j+1,k+1) = q_vec(2);
+            q_jd_ku(i+1,j+1,k+1) = q_vec(3);
+            q_jd_kd(i+1,j+1,k+1) = q_vec(4);
         end
     end
 end
 
-end
+end 
