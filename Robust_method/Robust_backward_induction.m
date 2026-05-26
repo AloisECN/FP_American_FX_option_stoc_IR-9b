@@ -9,6 +9,7 @@ function V0 = Robust_backward_Induction(S_tree, N, K, ...
         end
     end
 
+    %backward induction loop
     for i = N:-1:1
         for j = 1:i
             for k = 1:i
@@ -23,14 +24,14 @@ function V0 = Robust_backward_Induction(S_tree, N, K, ...
                 kd = kd_r(i, k)    + 1;
 
                 % df_rob(i,k): discount from node (i,k) to next step
-                df           = df_rob(i, k);
+                df = df_rob(i, k);
                 continuation = df * ( p_uu * V(i+1, ju, ku) ...
                                     + p_ud * V(i+1, ju, kd) ...
                                     + p_du * V(i+1, jd, ku) ...
                                     + p_dd * V(i+1, jd, kd) );
 
                 intrinsic  = max(K - S_tree(i, j), 0);
-                V(i, j, k) = max(intrinsic, continuation);
+                V(i, j, k) = max(intrinsic, continuation); % as it's an american option
             end
         end
     end

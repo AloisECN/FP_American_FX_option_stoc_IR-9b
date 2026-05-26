@@ -1,5 +1,5 @@
 function [S_tree, q_ju_ku, q_ju_kd, q_jd_ku, q_jd_kd, ju_S, jd_S, ku_r, kd_r, df_rob] = ...
-    tree_Robust(N, h, kappa, zeta0, sigma_S, sigma_r, S0, rho, I, yearFrac)
+    tree_Robust(N, h, kappa, zeta0, sigma_S, sigma_r, S0, rho)
 
 %% Part 1: Interest Rate Tree
 r_tree = zeros(N+1, N+1);
