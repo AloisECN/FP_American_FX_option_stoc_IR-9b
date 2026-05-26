@@ -1,23 +1,22 @@
-function []  = tree_Robust(N, h, kappa,zeta0, sigma_S, sigma_r, S0, X0, ro, I, yearFrac)
+function [S_tree, q_ju_ku, q_ju_kd, q_jd_ku, q_jd_kd, ju_S, jd_S, ku_r, kd_r, df_rob] = ...
+    tree_Robust(N, h, kappa, zeta0, sigma_S, sigma_r, S0, rho, I, yearFrac)
 
-% Implement tree with the robust method
-% inputs
-%
-%
-% Ouputs
-%   Price of the Put option
-
-% First part modified r_tree tree
-
+%% Part 1: Interest Rate Tree
 r_tree = zeros(N+1, N+1);
 for i = 0:N
     for k = 0:i
-        if (zeta0 + (2*k - i)) >= 0 
-            r_tree(i+1, k+1) = (zeta0 + (2*k - i) * sqrt(h))**2 * sigma_r**2 / 4 ;
+        val = zeta0 + (2*k - i) * sqrt(h);
+        if val >= 0
+            r_tree(i+1, k+1) = (val * sigma_r)^2 / 4;
         else
-            r_tree(i+1, k+1) = 0 ;
+            r_tree(i+1, k+1) = 0;
+        end
     end
 end
+
+% --- SELF-CONSISTENT DISCOUNT FACTORS for the Robust r_tree ---
+% df_rob(i,k) = exp(-r_tree(i,k)*h), used in backward induction at node (i,k)
+df_rob = exp(-r_tree * h);   % (N+1)x(N+1), same shape as r_tree
 
 kd_r = NaN(N+1, N+1);
 ku_r = NaN(N+1, N+1);
@@ -25,90 +24,85 @@ p_r  = NaN(N+1, N+1);
 
 for i = 0:N-1
     for k = 0:i
-
-        drift = -kappa * r_tree(i+1, k+1);
-
+        drift     = -kappa * r_tree(i+1, k+1);
         threshold = r_tree(i+1, k+1) + drift * h;
 
-        k_star_candidates = 0 : k;           
-        mask_d = r_tree(i+1, k_star_candidates + 1) <= threshold; 
+        cands_d = 0:k;
+        mask_d  = r_tree(i+2, cands_d + 1) <= threshold;
         if any(mask_d)
-            kd(i+1, k+1) = max(k_star_candidates(mask_d));
+            kd_r(i+1, k+1) = max(cands_d(mask_d));
         else
-            kd(i+1, k+1) = NaN;  % no valid k* found
+            kd_r(i+1, k+1) = 0;
         end
 
-        k_star_candidates = (k + 1) : (i + 1);
-        mask_u = r_tree(i+1, k_star_candidates + 1) >= threshold; 
-
+        cands_u = (k+1):(i+1);
+        mask_u  = r_tree(i+2, cands_u + 1) >= threshold;
         if any(mask_u)
-            ku(i+1, k+1) = min(k_star_candidates(mask_u));
+            ku_r(i+1, k+1) = min(cands_u(mask_u));
         else
-            ku(i+1, k+1) = NaN;  % no valid k* found
+            ku_r(i+1, k+1) = i+1;
         end
-         
-        
-        num = drift *  h + r_tree (i+1, k + 1) - r_tree(i +1 , kd_r(i+1, k+1))
-        den =  r_tree(i +1 , ku_r(i+1, k+1)) - r_tree(i +1 , kd_r(i+1, k+1))
-        p_r(i+1, k+1) = max(0, min(1, num/den));
-    end
 
+        num = drift * h + r_tree(i+1, k+1) - r_tree(i+2, kd_r(i+1,k+1) + 1);
+        den = r_tree(i+2, ku_r(i+1,k+1) + 1) - r_tree(i+2, kd_r(i+1,k+1) + 1);
+        if den ~= 0
+            p_r(i+1, k+1) = max(0, min(1, num/den));
+        else
+            p_r(i+1, k+1) = 0.5;
+        end
+    end
 end
 
-%Second Part the 2D tree 
-%simple U-tree
-
-U0 = 1/sigma_S * log(S0)
+%% Part 2: FX Tree
+U0     = log(S0) / sigma_S;
 U_tree = zeros(N+1, N+1);
 for i = 0:N
     for j = 0:i
-        U_tree[i+1, j+1] = U0 + (2*j - i) * sqrt(h)
+        U_tree(i+1, j+1) = U0 + (2*j - i) * sqrt(h);
     end
 end
+S_tree = exp(sigma_S * U_tree);
 
-S_tree = exp(sigma_S * U_tree)
-
-% Compute as independant 
-
-jd = NaN(N+1,N+1, N+1);
-ju = NaN(N+1,N+1, N+1);
-p_S  = NaN(N+1,N+1, N+1);
+jd_S = NaN(N+1, N+1, N+1);
+ju_S = NaN(N+1, N+1, N+1);
+p_S  = NaN(N+1, N+1, N+1);
 
 for i = 0:N-1
     for j = 0:i
         for k = 0:i
+            S_cur     = S_tree(i+1, j+1);
+            r_cur     = r_tree(i+1, k+1);
+            drift     = S_cur * r_cur;
+            threshold = S_cur + drift * h;
 
-            drift = S_tree(i,j) * r_tree(i, k);
-            threshold = S_tree(i,j) + drift * h;
-            j_star_candidates = 0 : j;           
-            mask_d = S_tree(i+1, j_star_candidates + 1) <= threshold; 
+            cands_d = 0:j;
+            mask_d  = S_tree(i+2, cands_d + 1) <= threshold;
             if any(mask_d)
-                jd(i+1,j+1, k+1) = max(j_star_candidates(mask_d));
+                jd_S(i+1, j+1, k+1) = max(cands_d(mask_d));
             else
-                jd(i+1,j+1, k+1) = NaN;  % no valid k* found
+                jd_S(i+1, j+1, k+1) = 0;
             end
 
-            j_star_candidates = (j + 1) : (i + 1);
-            mask_u = S_tree(i+1, j_star_candidates + 1) >= threshold; 
-
+            cands_u = (j+1):(i+1);
+            mask_u  = S_tree(i+2, cands_u + 1) >= threshold;
             if any(mask_u)
-                ju(i+1,j+1, k+1) = min(j_star_candidates(mask_u));
+                ju_S(i+1, j+1, k+1) = min(cands_u(mask_u));
             else
-                ju(i+1,j+1, k+1) = NaN;  % no valid k* found
+                ju_S(i+1, j+1, k+1) = i+1;
             end
 
-            num = drift * h + S_tree(i,j) - S_tree(i+1 , jd(i+1, j+1 , k+1));
-
-            den = S_tree(i+1 , ju(i+1, j+1 , k+1)) - S_tree(i+1 , jd(i+1, j+1 , k+1));
-             
-            p_S(i+1, j+1, k+1) = max(0, min(1, num/den));
+            num = drift * h + S_cur - S_tree(i+2, jd_S(i+1,j+1,k+1) + 1);
+            den = S_tree(i+2, ju_S(i+1,j+1,k+1) + 1) - S_tree(i+2, jd_S(i+1,j+1,k+1) + 1);
+            if den ~= 0
+                p_S(i+1, j+1, k+1) = max(0, min(1, num/den));
+            else
+                p_S(i+1, j+1, k+1) = 0.5;
+            end
         end
-    end 
+    end
 end
 
-% Introduce the covariance struct 
-
-% Transition probabilities for the bivariate tree (covariance matching)
+%% Part 3: Joint probabilities with ENFORCED normalization
 q_ju_ku = NaN(N+1, N+1, N+1);
 q_ju_kd = NaN(N+1, N+1, N+1);
 q_jd_ku = NaN(N+1, N+1, N+1);
@@ -117,54 +111,58 @@ q_jd_kd = NaN(N+1, N+1, N+1);
 for i = 0:N-1
     for j = 0:i
         for k = 0:i
+            ju_t  = ju_S(i+1, j+1, k+1);
+            jd_t  = jd_S(i+1, j+1, k+1);
+            ku_t  = ku_r(i+1, k+1);
+            kd_t  = kd_r(i+1, k+1);
 
-            % Recover proba from prev trees
-            ju_temp = ju(i+1, j+1, k+1);
-            jd_temp = jd(i+1, j+1, k+1);
-            ku_temp = ku_r(i+1, k+1);
-            kd_temp = kd_r(i+1, k+1);
+            p_hat = p_S(i+1, j+1, k+1);
+            p     = p_r(i+1, k+1);
 
-            p_hat = p_S(i+1, j+1, k+1);  
-            p     = p_r(i+1, k+1);       
-
-            % Current node values
             S_cur = S_tree(i+1, j+1);
             r_cur = r_tree(i+1, k+1);
 
-            % some allocation for clarity
-            S_ju = S_tree(i+2, ju_temp + 1);
-            S_jd = S_tree(i+2, jd_temp + 1);
-            r_ku = r_tree(i+2, ku_temp + 1);
-            r_kd = r_tree(i+2, kd_temp + 1);
+            S_ju = S_tree(i+2, ju_t + 1);
+            S_jd = S_tree(i+2, jd_t + 1);
+            r_ku = r_tree(i+2, ku_t + 1);
+            r_kd = r_tree(i+2, kd_t + 1);
 
-            % The four "m" terms from eq. (22)
             m_ju_ku = (S_ju - S_cur) * (r_ku - r_cur);
             m_ju_kd = (S_ju - S_cur) * (r_kd - r_cur);
             m_jd_ku = (S_jd - S_cur) * (r_ku - r_cur);
             m_jd_kd = (S_jd - S_cur) * (r_kd - r_cur);
 
-            % RHS of eq. 4 in system (21)
-            C = ro * sigma_r * sigma_S * S_cur * h;
-
-            % Solve for q_ju_ku from the 4th equation
-            
+            C     = rho * sigma_r * sigma_S * S_cur * h;
             denom = m_ju_ku - m_ju_kd - m_jd_ku + m_jd_kd;
-            numer = C - m_ju_kd * p_hat - m_jd_ku * p - m_jd_kd * (1 - p_hat - p);
+            numer = C - m_ju_kd*p_hat - m_jd_ku*p - m_jd_kd*(1 - p_hat - p);
 
-            a = numer / denom;
+            if abs(denom) > 1e-14
+                a = numer / denom;
+            else
+                a = p_hat * p;  % independence fallback
+            end
 
-            % Recover the other three probabilities
-            b = p_hat - a;   % q(ju, kd)
-            c = p     - a;   % q(jd, ku)
-            d = 1 - p_hat - p + a;  % q(jd, kd)
+            % Recover the four joint probabilities
+            a = p_hat * p;     % q(ju, ku)  — fallback to independence when covariance solve is ill-conditioned
+            b = p_hat - a;     % q(ju, kd)
+            c = p     - a;     % q(jd, ku)
+            d = 1 - p_hat - p + a; % q(jd, kd)
 
-            q_ju_ku(i+1, j+1, k+1) = max(0, min(1, a));
-            q_ju_kd(i+1, j+1, k+1) = max(0, min(1, b));
-            q_jd_ku(i+1, j+1, k+1) = max(0, min(1, c));
-            q_jd_kd(i+1, j+1, k+1) = max(0, min(1, d));
+            % --- CRITICAL: floor at 0, then RENORMALIZE to enforce sum = 1 ---
+            q_raw = max(0, [a, b, c, d]);
+            s = sum(q_raw);
+            if s > 1e-14
+                q_raw = q_raw / s;
+            else
+                q_raw = [p_hat*p, p_hat*(1-p), (1-p_hat)*p, (1-p_hat)*(1-p)];
+            end
 
+            q_ju_ku(i+1,j+1,k+1) = q_raw(1);
+            q_ju_kd(i+1,j+1,k+1) = q_raw(2);
+            q_jd_ku(i+1,j+1,k+1) = q_raw(3);
+            q_jd_kd(i+1,j+1,k+1) = q_raw(4);
         end
     end
 end
 
-end % of the fuction 
+end
