@@ -35,9 +35,9 @@ r0    = -1/(1/365) * log(0.99998157);
 zeta0 = r0 / sigma_r;
 
 %% Shared parameters (used by both methods and by Point iii)
-N     = 50;
+N     = 100;
 h     = TTM / N;
-t_nodes  = 0 : h : TTM;
+t_nodes  = (0:N)*h;
 treeDates = refDate + days(round(365 * t_nodes));
 
 K_atm    = S0;
@@ -213,4 +213,3 @@ fprintf('\nRepricing American Option with calibrated volatility (N = %d)...\n', 
 americanPrice_calib = backwardInduction(S_tree_calib, N, K_atm, p_r, p_hat_S_calib, kd_r, jd_S_calib, df_HW);
 
 fprintf('American Option Price (CRR Tree):      %.6f\n', americanPrice_calib);
-
