@@ -213,3 +213,38 @@ fprintf('\nRepricing American Option with calibrated volatility (N = %d)...\n', 
 americanPrice_calib = backwardInduction(S_tree_calib, N, K_atm, p_r, p_hat_S_calib, kd_r, jd_S_calib, df_HW);
 
 fprintf('American Option Price (CRR Tree):      %.6f\n', americanPrice_calib);
+
+%% POINT iii) -d: Cost-of-Carry Parallel Shifts Analysis
+% Define the parallel shifts to be applied to the Cost-of-Carry 
+shift = [-0.02, -0.01, 0.01, 0.02];
+
+price_am_shifted = zeros(size(shift));
+price_eur_shifted = zeros(size(shift));
+
+fprintf('\nShift (%%) | European | American | EEP\n');
+fprintf('------------------------------------------\n');
+
+for i = 1 : length(shift)
+    s = shift(i); 
+    
+    % --- 1. AMERICAN OPTION (CRR Tree Method) ---
+    % Rebuild the FX spot tree  
+    % The function internally adjusts the integral of the Cost-of-Carry (drift).
+    [S_tree_shifted, jd_S_shifted, ju_S_shifted, p_hat_S_shifted] = buildStree(N, h, kappa, sigma_S_calibrated,...
+        sigma_r, S0, Y0, rho, I, zeta_tree, yearFraction, s);
+        
+    % Price the American Put option using the newly shifted tree
+    price_am_shifted(i) = backwardInduction(S_tree_shifted, N, K_atm, p_r, p_hat_S_shifted, kd_r, jd_S_shifted, df_HW);
+    
+    
+    % --- 2. EUROPEAN OPTION (Analytical Method) ---
+    % the target Forward rate must be shifted consistently with the Cost-of-Carry.
+    F_shifted = F_2y * exp(s * TTM);
+    
+    % Compute the closed-form European Put price using the shifted Forward
+    price_eur_shifted(i) = EuroPriceStochIR(F_shifted, TTM, sigma_S_calibrated,...
+                                            rho, kappa, sigma_r, K_atm, df_2y);
+                                            
+   fprintf('Shift = %+3.0f%% \t| Eur Price = %.5f \t| Am Price = %.5f\n', ...
+        s * 100, price_eur_shifted(i), price_am_shifted(i));
+end
