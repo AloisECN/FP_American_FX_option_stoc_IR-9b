@@ -120,7 +120,7 @@ else  % method == 2: Robust
 
     %% POINT ii-a: American Put Price vs Strike (Robust)
     [S_tree_rob, q_ju_ku, q_ju_kd, q_jd_ku, q_jd_kd, ju_S_rob, jd_S_rob, ku_r_rob, kd_r_rob, df_rob] = ...
-        tree_Robust(N, h, kappa, zeta0, sigma_S, sigma_r, S0, rho, I, yearFraction);
+        tree_Robust(N, h, kappa, zeta0, sigma_S, sigma_r, S0, rho);
 
     prices_vs_K_rob = zeros(size(K_vec));
     for idx = 1:length(K_vec)
