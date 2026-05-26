@@ -1,4 +1,9 @@
-function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, sigma_r, S0, Y0, ro, I, zeta_tree, yearFrac)
+function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
+                   sigma_r, S0, Y0, ro, I, zeta_tree, yearFrac, shift_amount)
+
+    if nargin < 12
+        shift_amount = 0;
+    end
 
     Y_tree = NaN(N+1, N+1);
     for i = 1 : N + 1
@@ -6,32 +11,34 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, sigma_
             Y_tree(i, j) = Y0 + (2*(j - 1) - (i - 1))*sqrt(h);  
         end
     end
-    
+
     jd_S = NaN(N+1, N+1, N+1);
     ju_S = NaN(N+1, N+1, N+1);
     p_hat_S = NaN(N+1, N+1, N+1);
-    
+
     for i = 1 : N
         for j = 1 : i
             for k = 1 : i
-            
+
                 drift = (1 / sqrt(1-ro^2)) * (sigma_r/sigma_S - ro*kappa) * zeta_tree(i, k);
                 jd_S(i, j, k) = j + floor((1 + sqrt(h) * drift)/2);
                 jd_S(i, j, k) = max(1, min(i, jd_S(i, j, k)));
                 ju_S(i, j, k) = jd_S(i, j, k) + 1;
-            
-                % CORREZIONE: X_tree(i+1, ...) per il nodo futuro
+
                 num = drift*h + Y_tree(i, j) - Y_tree(i+1, jd_S(i, j, k));
                 den = 2*sqrt(h);
                 p_hat_S(i, j, k) = max(0, min(1, num/den));
             end
         end
     end
-    
+
     S_tree = NaN(N+1, N+1, N+1);
     t_nodes = (0:N) * h;
     I_ti = interp1(yearFrac, I, t_nodes, 'linear', 'extrap');
     
+   
+    I_ti = I_ti + (shift_amount * t_nodes);
+
     for i = 1 : N + 1 
         for j = 1 : i
             for k = 1 : i
@@ -40,9 +47,8 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, sigma_
             end
         end
     end
-    
-end
 
+end
 
 
 %% VECTORIALIZED FUNCTION -> MORE EFFICIENT
