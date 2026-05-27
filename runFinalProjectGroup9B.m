@@ -49,22 +49,22 @@ N_vec    = [10, 25, 50, 75, 100, 150, 200, 300];
 B0_nodes = getDiscountFactorByZeroRatesLinearInterp(refDate, treeDates, dates_dt, discounts);
 [x_tree, zeta_tree, kd_r, ku_r, p_r] = buildXtree(N, h, kappa, sigma_r, zeta0);
 df_HW    = fwdDiscounts_OU(x_tree, kappa, sigma_r, t_nodes, B0_nodes);
-X0       = -rho * zeta0 / sqrt(1 - rho^2);
+Y0       = -rho * zeta0 / sqrt(1 - rho^2);
 
 %% Method selection
 method = input('Which method? 1: Wei  |  2: Robust  --> ');
 
 if method == 1
 
-    %% POINT ii-a: American Put Price vs Strike (Wei)
+    %% POINT ii)-a: American Put Price vs Strike (Wei/Standard)
     [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, sigma_r, ...
-                                                S0, X0, rho, I, zeta_tree, yearFraction);
-
+                                                S0, Y0, rho, I, zeta_tree, yearFraction);
     prices_vs_K = zeros(size(K_vec));
     for idx = 1:length(K_vec)
-        prices_vs_K(idx) = backwardInduction(S_tree, N, K_vec(idx), p_r, p_hat_S, kd_r, jd_S, df_HW);
+        prices_vs_K(idx) = backwardInduction(S_tree, zeta_tree, N, K_vec(idx), p_r, p_hat_S, ...
+            kd_r, ku_r, jd_S, ju_S, df_HW, rho, sigma_r, sigma_S, h, 'Wei');
     end
-
+    
     figure('Name', 'American Put vs Strike');
     plot(K_vec, prices_vs_K, '-o', 'LineWidth', 1.5); grid on;
     title('American Put Option Price vs Strike (T=2y, \rho=0.3)');
@@ -72,118 +72,159 @@ if method == 1
     xline(S0, '--r', 'ATM Strike');
     legend('American Put Price', 'ATM Level', 'Location', 'best');
 
-    %% POINT ii-b: ATM Price vs Correlation (Wei)
+    %% POINT ii)-b: ATM Price vs Correlation (Wei / Standard)
     prices_vs_rho = zeros(size(rho_new));
     for i = 1:length(rho_new)
         current_rho   = rho_new(i);
-        X0_current    = -current_rho * zeta0 / sqrt(1 - current_rho^2);
+        Y0_current    = -current_rho * zeta0 / sqrt(1 - current_rho^2);
+        
         [S_tree_curr, jd_S_curr, ju_S_curr, p_hat_S_curr] = buildStree(N, h, kappa, sigma_S, sigma_r, ...
-                                                                        S0, X0_current, current_rho, I, zeta_tree, yearFraction);
-        prices_vs_rho(i) = backwardInduction(S_tree_curr, N, K_atm, p_r, p_hat_S_curr, kd_r, jd_S_curr, df_HW);
+                                                                        S0, Y0_current, current_rho, I, zeta_tree, yearFraction);
+        
+        prices_vs_rho(i) = backwardInduction(S_tree_curr, zeta_tree, N, K_atm, p_r, p_hat_S_curr, ...
+            kd_r, ku_r, jd_S_curr, ju_S_curr, df_HW, current_rho, sigma_r, sigma_S, h, 'Wei');
     end
-
+    
     figure('Name', 'American Put vs Correlation');
     plot(rho_new, prices_vs_rho, '-ro', 'LineWidth', 1.5); grid on;
     title('ATM American Put Price vs Correlation \rho (T=2y, K=S_0)');
     xlabel('Correlation (\rho)'); ylabel('Option Price (USD)');
 
-    %% POINT ii-c: Convergence & Computational Time (Wei)
+   %% POINT ii)-c: Convergence & Computational Time (Wei / Standard)
     prices_vs_N        = zeros(size(N_vec));
     computational_times = zeros(size(N_vec));
-
-    fprintf('\n--- CONVERGENCE & PERFORMANCE ANALYSIS (WEI) ---\n');
+    
+    fprintf('\n--- CONVERGENCE & PERFORMANCE ANALYSIS (WEI / STANDARD) ---\n');
+    
     for i = 1:length(N_vec)
         cur_N = N_vec(i);
         cur_h = TTM / cur_N;
         t_nodes_curr   = 0 : cur_h : TTM;
         treeDates_curr = refDate + days(round(365 * t_nodes_curr));
-        tic;
-
+        
+        tic; 
+        
         B0_curr = getDiscountFactorByZeroRatesLinearInterp(refDate, treeDates_curr, dates_dt, discounts);
         [x_curr, zeta_curr, kd_r_curr, ku_r_curr, p_r_curr] = buildXtree(cur_N, cur_h, kappa, sigma_r, zeta0);
         df_HW_curr = fwdDiscounts_OU(x_curr, kappa, sigma_r, t_nodes_curr, B0_curr);
-
+        
         [S_curr, jd_curr, ju_curr, p_hat_curr] = buildStree(cur_N, cur_h, kappa, sigma_S, sigma_r, ...
-                                                             S0, X0, rho, I, zeta_curr, yearFraction);
-        prices_vs_N(i)        = backwardInduction(S_curr, cur_N, K_atm, p_r_curr, p_hat_curr, kd_r_curr, jd_curr, df_HW_curr);
+                                                             S0, Y0, rho, I, zeta_curr, yearFraction);
+        
+        prices_vs_N(i) = backwardInduction(S_curr, zeta_curr, cur_N, K_atm, p_r_curr, p_hat_curr, ...
+                                           kd_r_curr, ku_r_curr, jd_curr, ju_curr, df_HW_curr, ...
+                                           rho, sigma_r, sigma_S, cur_h, 'Wei');
+        
         computational_times(i) = toc;
+        
         fprintf('N = %d \t| Price = %.6f \t| Time = %.3f sec\n', cur_N, prices_vs_N(i), computational_times(i));
     end
-
+    
     figure('Name', 'Point ii.c: Precision vs Time');
-    yyaxis left;  plot(N_vec, prices_vs_N, '-ok', 'LineWidth', 1.5, 'MarkerFaceColor', 'k'); ylabel('ATM Option Price (USD)');
-    yyaxis right; plot(N_vec, computational_times, '-^g', 'LineWidth', 1.5, 'MarkerFaceColor', 'g'); ylabel('Computational Time (s)');
+    yyaxis left;  
+    plot(N_vec, prices_vs_N, '-ok', 'LineWidth', 1.5, 'MarkerFaceColor', 'k'); 
+    ylabel('ATM Option Price (USD)');
+    
+    yyaxis right; 
+    plot(N_vec, computational_times, '-^g', 'LineWidth', 1.5, 'MarkerFaceColor', 'g'); 
+    ylabel('Computational Time (s)');
+    
     xlabel('Number of Time Steps (N)'); grid on;
     title('Convergence & Computational Cost vs N');
-
 else  % method == 2: Robust
 
-    %% POINT ii-a: American Put Price vs Strike (Robust)
-    [S_tree_rob, q_ju_ku, q_ju_kd, q_jd_ku, q_jd_kd, ju_S_rob, jd_S_rob, ku_r_rob, kd_r_rob, df_rob] = ...
-        tree_Robust(N, h, kappa, zeta0, sigma_S, sigma_r, S0, rho);
-
+    %% POINT ii)-a: American Put Price vs Strike (Robust)
+    
+    U0 = log(S0) / sigma_S;
+    
+    [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, sigma_S, U0, x_tree);
+    
     prices_vs_K_rob = zeros(size(K_vec));
+    
     for idx = 1:length(K_vec)
-        prices_vs_K_rob(idx) = Robust_backward_Induction(S_tree_rob, N, K_vec(idx), ...
-            q_ju_ku, q_ju_kd, q_jd_ku, q_jd_kd, ju_S_rob, jd_S_rob, ku_r_rob, kd_r_rob, df_rob);
-                                                                       % ^^^^^^ was df_HW
+        prices_vs_K_rob(idx) = backwardInduction(S_tree_rob, x_tree, N, K_vec(idx), p_r, p_hat_S_rob, ...
+            kd_r, ku_r, jd_S_rob, ju_S_rob, df_HW, rho, sigma_r, sigma_S, h, 'Robust');
     end
 
+    
     figure('Name', 'Robust: American Put vs Strike');
-    plot(K_vec, prices_vs_K_rob, '-o', 'LineWidth', 1.5); grid on;
+    plot(K_vec, prices_vs_K_rob, '-o', 'LineWidth', 1.5, 'MarkerFaceColor', 'b'); 
+    grid on;
     title('Robust - American Put Option Price vs Strike (T=2y, \rho=0.3)');
-    xlabel('Strike Price (K)'); ylabel('Option Price (USD)');
+    xlabel('Strike Price (K)'); 
+    ylabel('Option Price (USD)');
     xline(S0, '--r', 'ATM Strike');
     legend('Robust American Put', 'ATM Level', 'Location', 'best');
 
-    %% POINT ii-b: ATM Price vs Correlation (Robust)
-     for i = 1:length(rho_new)
+    %% POINT ii)-b: ATM Price vs Correlation (Robust)
+    prices_vs_rho_rob = zeros(size(rho_new));
+    
+    U0 = log(S0) / sigma_S;
+    [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, sigma_S, U0, x_tree);
+    
+    for i = 1:length(rho_new)
         current_rho = rho_new(i);
-        [S_rob_r, q_uu_r, q_ud_r, q_du_r, q_dd_r, ju_r, jd_r, ku_rr, kd_rr, df_rob_r] = ...
-            tree_Robust(N, h, kappa, zeta0, sigma_S, sigma_r, S0, current_rho, I, yearFraction);
-        prices_vs_rho_rob(i) = Robust_backward_Induction(S_rob_r, N, K_atm, ...
-            q_uu_r, q_ud_r, q_du_r, q_dd_r, ju_r, jd_r, ku_rr, kd_rr, df_rob_r);
+        
+        prices_vs_rho_rob(i) = backwardInduction(S_tree_rob, x_tree, N, K_atm, p_r, p_hat_S_rob, ...
+                                         kd_r, ku_r, jd_S_rob, ju_S_rob, df_HW, ...
+                                         current_rho, sigma_r, sigma_S, h, 'Robust');
     end
-
+    
     figure('Name', 'Robust: American Put vs Correlation');
-    plot(rho_new, prices_vs_rho_rob, '-ro', 'LineWidth', 1.5); grid on;
+    plot(rho_new, prices_vs_rho_rob, '-ro', 'LineWidth', 1.5, 'MarkerFaceColor', 'r'); 
+    grid on;
     title('Robust - ATM American Put Price vs Correlation \rho (T=2y, K=S_0)');
-    xlabel('Correlation (\rho)'); ylabel('Option Price (USD)');
+    xlabel('Correlation (\rho)'); 
+    ylabel('Option Price (USD)');
 
-    %% POINT ii-c: Convergence & Computational Time (Robust)
+    %% POINT ii)-c: Convergence & Computational Time (Robust)
     prices_vs_N_rob = zeros(size(N_vec));
     times_rob       = zeros(size(N_vec));
-
+    
     fprintf('\n--- CONVERGENCE & PERFORMANCE ANALYSIS (ROBUST) ---\n');
-
+    
     for i = 1:length(N_vec)
-         cur_N = N_vec(i);
+        cur_N = N_vec(i);
         cur_h = TTM / cur_N;
         t_nodes_curr   = 0 : cur_h : TTM;
         treeDates_curr = refDate + days(round(365 * t_nodes_curr));
-        tic;
-        [S_rob_c, q_uu_c, q_ud_c, q_du_c, q_dd_c, ju_c, jd_c, ku_c, kd_c, df_rob_c] = ...
-            tree_Robust(cur_N, cur_h, kappa, zeta0, sigma_S, sigma_r, S0, rho, I, yearFraction);
-        prices_vs_N_rob(i) = Robust_backward_Induction(S_rob_c, cur_N, K_atm, ...
-            q_uu_c, q_ud_c, q_du_c, q_dd_c, ju_c, jd_c, ku_c, kd_c, df_rob_c);
-        times_rob(i) = toc;
+        
+        tic; 
+        
+        B0_curr = getDiscountFactorByZeroRatesLinearInterp(refDate, treeDates_curr, dates_dt, discounts);
+        [x_curr, zeta_curr, kd_r_curr, ku_r_curr, p_r_curr] = buildXtree(cur_N, cur_h, kappa, sigma_r, zeta0);
+        df_HW_curr = fwdDiscounts_OU(x_curr, kappa, sigma_r, t_nodes_curr, B0_curr);
+        
+        U0 = log(S0) / sigma_S;
+        [S_rob_c, jd_c, ju_c, p_hat_c] = buildStreeRobust(cur_N, cur_h, sigma_S, U0, zeta_curr);
+        
+        prices_vs_N_rob(i) = backwardInduction(S_rob_c, x_curr, cur_N, K_atm, p_r_curr, p_hat_c, ...
+                                       kd_r_curr, ku_r_curr, jd_c, ju_c, df_HW_curr, ...
+                                       rho, sigma_r, sigma_S, cur_h, 'Robust');
+            
+        times_rob(i) = toc; 
+        
         fprintf('N = %d \t| Robust Price = %.6f \t| Time = %.3f sec\n', cur_N, prices_vs_N_rob(i), times_rob(i));
     end
-
+    
     figure('Name', 'Robust: Precision vs Time');
-    yyaxis left;  plot(N_vec, prices_vs_N_rob, '-ok', 'LineWidth', 1.5, 'MarkerFaceColor', 'k'); ylabel('ATM Option Price (USD)');
-    yyaxis right; plot(N_vec, times_rob, '-^g', 'LineWidth', 1.5, 'MarkerFaceColor', 'g'); ylabel('Computational Time (s)');
+    yyaxis left;  
+    plot(N_vec, prices_vs_N_rob, '-ok', 'LineWidth', 1.5, 'MarkerFaceColor', 'k'); 
+    ylabel('ATM Option Price (USD)');
+    
+    yyaxis right; 
+    plot(N_vec, times_rob, '-^g', 'LineWidth', 1.5, 'MarkerFaceColor', 'g'); 
+    ylabel('Computational Time (s)');
+    
     xlabel('Number of Time Steps (N)'); grid on;
     title('Robust - Convergence & Computational Cost vs N');
-
-
 end
 
 
 
 %% POINT iii): Volatility Calibration & True American Pricing
 [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, sigma_r, ...
-                                            S0, X0, rho, I, zeta_tree, yearFraction);
+                                            S0, Y0, rho, I, zeta_tree, yearFraction);
 % 1. Retrieve specific T=2y target data from arrays
 F_2y = fwd_mid_curve(9);      % 1.17480
 df_2y = discounts(9);         % 0.97399953
@@ -206,12 +247,13 @@ fprintf('Calibrated True Volatility (sigma_S): %.4f%%\n', sigma_S_calibrated * 1
 fprintf('\nRepricing American Option with calibrated volatility (N = %d)...\n', N);
 
 % Rebuild FX Tree using sigma_S_calibrated instead of the raw market vol
-[S_tree_calib, jd_S_calib, ju_S_calib, p_hat_S_calib] = buildStree(N, h, kappa, sigma_S_calibrated, sigma_r, ...
-                                                                   S0, X0, rho, I, zeta_tree, yearFraction);
+[S_tree_calib, jd_S_calib, ju_S_calib, p_hat_S_calib] = buildStree(N, h, kappa, sigma_S_calibrated,...
+    sigma_r, S0, Y0, rho, I, zeta_tree, yearFraction);
 
 % Execute backward induction for the American option on the new tree
-americanPrice_calib = backwardInduction(S_tree_calib, N, K_atm, p_r, p_hat_S_calib, kd_r, jd_S_calib, df_HW);
-
+americanPrice_calib = backwardInduction(S_tree_calib, x_tree, N, K_atm, p_r, p_hat_S_calib, ...
+                                        kd_r, ku_r, jd_S_calib, ju_S_calib, df_HW, ...
+                                        rho, sigma_r, sigma_S_calibrated, h, 'Wei');
 fprintf('American Option Price (CRR Tree):      %.6f\n', americanPrice_calib);
 
 %% POINT iii) -d: Cost-of-Carry Parallel Shifts Analysis
@@ -230,11 +272,13 @@ for i = 1 : length(shift)
     % --- 1. AMERICAN OPTION (CRR Tree Method) ---
     % Rebuild the FX spot tree  
     % The function internally adjusts the integral of the Cost-of-Carry (drift).
-    [S_tree_shifted, jd_S_shifted, ju_S_shifted, p_hat_S_shifted] = buildStree(N, h, kappa, sigma_S_calibrated,...
-        sigma_r, S0, Y0, rho, I, zeta_tree, yearFraction, s);
+    [S_tree_shifted, jd_S_shifted, ju_S_shifted, p_hat_S_shifted] = buildStree(N, h, kappa, ...
+        sigma_S_calibrated, sigma_r, S0, Y0, rho, I, zeta_tree, yearFraction, s);
         
     % Price the American Put option using the newly shifted tree
-    price_am_shifted(i) = backwardInduction(S_tree_shifted, N, K_atm, p_r, p_hat_S_shifted, kd_r, jd_S_shifted, df_HW);
+    price_am_shifted(i) = backwardInduction(S_tree_shifted, x_tree, N, K_atm, p_r, p_hat_S_shifted, ...
+                                        kd_r, ku_r, jd_S_shifted, ju_S_shifted, df_HW, ...
+                                        rho, sigma_r, sigma_S_calibrated, h, 'Wei');
     
     
     % --- 2. EUROPEAN OPTION (Analytical Method) ---
