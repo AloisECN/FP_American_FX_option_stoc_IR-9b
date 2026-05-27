@@ -137,7 +137,7 @@ else  % method == 2: Robust
     
     U0 = log(S0) / sigma_S;
     
-    [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, sigma_S, U0, x_tree);
+    [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, sigma_S, U0, df_HW);
     
     prices_vs_K_rob = zeros(size(K_vec));
     
@@ -160,7 +160,7 @@ else  % method == 2: Robust
     prices_vs_rho_rob = zeros(size(rho_new));
     
     U0 = log(S0) / sigma_S;
-    [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, sigma_S, U0, x_tree);
+    [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, sigma_S, U0, df_HW);
     
     for i = 1:length(rho_new)
         current_rho = rho_new(i);
@@ -196,7 +196,7 @@ else  % method == 2: Robust
         df_HW_curr = fwdDiscounts_OU(x_curr, kappa, sigma_r, t_nodes_curr, B0_curr);
         
         U0 = log(S0) / sigma_S;
-        [S_rob_c, jd_c, ju_c, p_hat_c] = buildStreeRobust(cur_N, cur_h, sigma_S, U0, zeta_curr);
+        [S_rob_c, jd_c, ju_c, p_hat_c] = buildStreeRobust(cur_N, cur_h, sigma_S, U0, df_HW_curr);
         
         prices_vs_N_rob(i) = backwardInduction(S_rob_c, x_curr, cur_N, K_atm, p_r_curr, p_hat_c, ...
                                        kd_r_curr, ku_r_curr, jd_c, ju_c, df_HW_curr, ...
