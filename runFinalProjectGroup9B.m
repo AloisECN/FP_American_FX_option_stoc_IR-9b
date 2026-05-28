@@ -43,7 +43,7 @@ treeDates = refDate + days(round(365 * t_nodes));
 K_atm    = S0;
 K_vec    = linspace(0.8 * S0, 1.2 * S0, 100);
 rho_new  = linspace(-0.99, 0.99, 50);
-N_vec    = [10, 25, 50, 75, 100, 150, 200, 300];
+N_vec    = [10, 25, 50, 75, 100, 150, 200, 300, 400, 500];
 
 % IR tree and discounts — needed by both methods and by Point iii
 B0_nodes = getDiscountFactorByZeroRatesLinearInterp(refDate, treeDates, dates_dt, discounts);

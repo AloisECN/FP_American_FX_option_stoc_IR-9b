@@ -96,24 +96,33 @@ function [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, 
     % continuous volatility (sigma_S), avoiding distortion.
     
     i_grid = (0:N)';   
-    j_grid = 0:N;      
+    j_grid = 0:N;      % Row vector representing spatial nodes
     
+    % Compute the mathematical values for the entire matrix simultaneously
     U_val = U0 + (2*j_grid - i_grid) * sqrt(h);
     
+    % Initialize the rigid spatial grid and apply a mask to keep only 
+    % the valid lower-triangular portion of the binomial tree (where j <= i)
     S_tree_rob = zeros(N+1, N+1);
     valid_mask = (j_grid <= i_grid);
     S_tree_rob(valid_mask) = exp(sigma_S * U_val(valid_mask));
 
+    % Initialize output tensors
     jd_S_rob = NaN(N+1, N+1, N+1);
     ju_S_rob = NaN(N+1, N+1, N+1);
     p_hat_S_rob = NaN(N+1, N+1, N+1);
 
+    % --- 2. Main Loop: Computing Transition Dynamics VECTORIZED ---
+    % We eliminate the j and k loops, computing entire (i x i) planes at each time step i
     for i = 1 : N
         
+        % --- Full Market Rate Extraction ---
         % Extract the continuous rate directly from the local discount factor matrix.
+        % df_HW(i, 1:i) is a Row Vector (1 x i), representing the interest rate nodes (k).
         r_t = -log(df_HW(i, 1:i)) / h;
 
         % Calculate the exact risk-neutral expected future value (continuous).
+        % S_tree_rob(i, 1:i)' is a Column Vector (i x 1), representing the FX nodes (j).
         S_cur = S_tree_rob(i, 1:i)';
         
         % Implicit Expansion: Multiplying a Column (i x 1) by a Row (1 x i) 
@@ -124,6 +133,7 @@ function [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, 
         % Extract the future physical nodes (1D array)
         S_next = S_tree_rob(i+1, 1:i+1);
 
+        % --- Continuous vs Discrete Mapping (Vectorized via 'discretize') ---
         % Since our grid is rigid, the 'threshold' falls between two predefined nodes.
         % Iterative 'find' is extremely slow on matrices. We use 'discretize' (binning)
         % to simultaneously map all (i x i) thresholds into their corresponding intervals.
@@ -137,9 +147,9 @@ function [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, 
         ju_mat = min(i+1, jd_mat + 1);
         
         % Exact edge-case corrections (replicating the original 'find' behavior)
-        ju_mat(threshold == S_next(jd_mat)) = jd_mat(threshold == S_next(jd_mat)); 
-        ju_mat(threshold < S_next(1)) = 1;       
-        ju_mat(threshold > S_next(end)) = i+1;   
+        ju_mat(threshold == S_next(jd_mat)) = jd_mat(threshold == S_next(jd_mat)); % Exact hit
+        ju_mat(threshold < S_next(1)) = 1;       % Extreme downside shock
+        ju_mat(threshold > S_next(end)) = i+1;   % Extreme upside shock
 
         % --- The Collapse Failsafe (ju = jd) ---
         % Fetch the physical FX values corresponding to the jump indices
@@ -157,11 +167,14 @@ function [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, 
         % Create a boolean mask where ceiling and floor are distinct nodes
         valid_jump = (ju_mat > jd_mat);
         
+        % Standard linear interpolation only on valid, non-collapsed nodes
         p_hat_mat(valid_jump) = num(valid_jump) ./ den(valid_jump);
         
         % Clamp probabilities to [0, 1]
         p_hat_mat = max(0, min(1, p_hat_mat));
 
+        % --- Save into Output Tensors ---
+        % Inject the computed 2D planes into the 3D tensors using reshape
         jd_S_rob(i, 1:i, 1:i) = reshape(jd_mat, [1, i, i]);
         ju_S_rob(i, 1:i, 1:i) = reshape(ju_mat, [1, i, i]);
         p_hat_S_rob(i, 1:i, 1:i) = reshape(p_hat_mat, [1, i, i]);

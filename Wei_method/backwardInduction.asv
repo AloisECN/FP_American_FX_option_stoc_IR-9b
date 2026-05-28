@@ -1,0 +1,211 @@
+% function V0 = backwardInduction(S_tree, zeta_tree, N, K, p_r, p_hat_S, kd_r, jd_S, ju_S, df_HW, rho, sigma_r, sigma_S, h, method)
+% 
+%     V = NaN(N+1, N+1, N+1);
+% 
+%     isRobustMethod = ismatrix(S_tree); 
+% 
+%     for j = 1 : N+1
+%         for k = 1: N+1
+%             if isRobustMethod
+%                 S_end = S_tree(N+1, j);
+%             else 
+%                 S_end = S_tree(N+1, j, k);
+%             end
+%             V(N+1, j, k) = max(K - S_end, 0);
+%         end
+%     end
+% 
+%     for i = N : -1 : 1
+%         for j = 1 : i
+%             for k = 1 : i
+% 
+%                 ps = p_hat_S(i, j, k);
+%                 pr = p_r(i, k);
+%                 jd = jd_S(i, j, k);
+%                 ju = ju_S(i, j, k);
+%                 kd = kd_r(i, k);
+%                 ku = kd + 1; 
+% 
+%                 if isRobustMethod
+%                     S_cur = S_tree(i, j);
+%                 else
+%                     S_cur = S_tree(i, j, k);
+%                 end
+% 
+%                 switch method
+%                     case 'Wei'
+%                         p_UU = ps * pr;
+%                         p_UD = ps * (1 - pr);
+%                         p_DU = (1 - ps) * pr;
+%                         p_DD = (1 - ps) * (1 - pr);
+% 
+%                     case 'Robust'
+%                         S_u = S_tree(i+1, ju);
+%                         S_d = S_tree(i+1, jd);
+%                         r_c = zeta_tree(i, k);
+%                         r_u = zeta_tree(i+1, ku);
+%                         r_d = zeta_tree(i+1, kd);
+% 
+%                         m_uu = (S_u - S_cur) * (r_u - r_c);
+%                         m_ud = (S_u - S_cur) * (r_d - r_c);
+%                         m_du = (S_d - S_cur) * (r_u - r_c);
+%                         m_dd = (S_d - S_cur) * (r_d - r_c);
+% 
+%                         A = [ 1,    1,    0,    0; 
+%                               1,    0,    1,    0; 
+%                               1,    1,    1,    1; 
+%                               m_uu, m_ud, m_du, m_dd ];
+% 
+%                         C = rho * sigma_r * sigma_S * S_cur * h;
+%                         B = [ ps; pr; 1; C ];
+% 
+%                         q = A \ B; 
+% 
+%                         p_UU_raw = max(0, q(1));
+%                         p_UD_raw = max(0, q(2));
+%                         p_DU_raw = max(0, q(3));
+%                         p_DD_raw = max(0, q(4));
+% 
+%                         sum_p = p_UU_raw + p_UD_raw + p_DU_raw + p_DD_raw;
+%                         if sum_p > 0
+%                             p_UU = p_UU_raw / sum_p;
+%                             p_UD = p_UD_raw / sum_p;
+%                             p_DU = p_DU_raw / sum_p;
+%                             p_DD = p_DD_raw / sum_p;
+%                         else
+%                             p_UU = 0.25; p_UD = 0.25; p_DU = 0.25; p_DD = 0.25;
+%                         end
+%                 end
+% 
+%                 V_UU = V(i+1, ju, ku) * p_UU;
+%                 V_UD = V(i+1, ju, kd) * p_UD;
+%                 V_DU = V(i+1, jd, ku) * p_DU;
+%                 V_DD = V(i+1, jd, kd) * p_DD;
+% 
+%                 continuationValue = df_HW(i, k) * (V_UU + V_UD + V_DU + V_DD);
+% 
+%                 V(i, j, k) = max(max(K - S_cur, 0), continuationValue);
+% 
+%             end
+%         end
+%     end
+%     V0 = V(1, 1, 1);
+% end
+% 
+
+
+
+function V0 = backwardInduction(S_tree, zeta_tree, N, K, p_r, p_hat_S, kd_r, jd_S, ju_S, df_HW, rho, sigma_r, sigma_S, h, method)
+
+    V = NaN(N+1, N+1, N+1);
+    isRobustMethod = ismatrix(S_tree); 
+    
+    if isRobustMethod
+        S_end = S_tree(N+1, 1:N+1); 
+        payoff = max(K - S_end, 0); % Vettore 1 x (N+1)
+        
+        % Trasformiamo in 1 x (N+1) x 1 e lo replichiamo lungo k (3a dimensione)
+        payoff_3D = repmat(reshape(payoff, 1, N+1, 1), 1, 1, N+1);
+        V(N+1, :, :) = payoff_3D; 
+    else 
+        % S_tree dipende da j e k, estraiamo direttamente il blocco 1 x (N+1) x (N+1)
+        S_end = S_tree(N+1, 1:N+1, 1:N+1);
+        V(N+1, :, :) = max(K - S_end, 0);
+    end
+    
+    % =========================================================
+    % 2. BACKWARD INDUCTION (Ciclo sul tempo)
+    % =========================================================
+    for i = N : -1 : 1
+        
+        % --- Estrazione matrici e vettori per lo step corrente ---
+        ps = squeeze(p_hat_S(i, 1:i, 1:i)); % Matrice (i x i)
+        pr = p_r(i, 1:i);                   % Vettore riga (1 x i)
+        
+        jd = squeeze(jd_S(i, 1:i, 1:i));    % Matrice (i x i)
+        ju = squeeze(ju_S(i, 1:i, 1:i));    % Matrice (i x i)
+        
+        kd = kd_r(i, 1:i);                  % Vettore riga (1 x i)
+        ku = kd + 1;                        % Vettore riga (1 x i)
+        
+        if isRobustMethod
+            S_cur = S_tree(i, 1:i)';        % Vettore colonna (i x 1)
+        else
+            S_cur = squeeze(S_tree(i, 1:i, 1:i)); % Matrice (i x i)
+        end
+        
+        % --- Calcolo delle probabilità ---
+        switch method
+            case 'Wei'
+                p_UU = ps .* pr;
+                p_UD = ps .* (1 - pr);
+                p_DU = (1 - ps) .* pr;
+                p_DD = (1 - ps) .* (1 - pr);
+                
+            case 'Robust'
+                S_next = S_tree(i+1, :);       % Vettore riga 1 x (N+1)
+                S_u = S_next(ju);              % Matrice (i x i) (indicizzazione magica di MATLAB)
+                S_d = S_next(jd);              % Matrice (i x i)
+                
+                r_c = zeta_tree(i, 1:i);       % Vettore riga (1 x i)
+                r_u = zeta_tree(i+1, ku);      % Vettore riga (1 x i)
+                r_d = zeta_tree(i+1, kd);      % Vettore riga (1 x i)
+                
+                m_uu = (S_u - S_cur) .* (r_u - r_c);
+                m_ud = (S_u - S_cur) .* (r_d - r_c);
+                m_du = (S_d - S_cur) .* (r_u - r_c);
+                m_dd = (S_d - S_cur) .* (r_d - r_c);
+                
+                C = rho * sigma_r * sigma_S * S_cur * h; % Colonna (i x 1)
+                
+                Denom = m_uu - m_ud - m_du + m_dd;
+                Denom(Denom == 0) = eps; % Previene divisione per zero
+                
+                q1 = (C - m_ud .* ps - m_du .* pr - m_dd .* (1 - ps - pr)) ./ Denom;
+                q2 = ps - q1;
+                q3 = pr - q1;
+                q4 = 1 - ps - pr + q1;
+                
+                p_UU_raw = max(0, q1);
+                p_UD_raw = max(0, q2);
+                p_DU_raw = max(0, q3);
+                p_DD_raw = max(0, q4);
+                
+                sum_p = p_UU_raw + p_UD_raw + p_DU_raw + p_DD_raw;
+                mask = sum_p > 0;
+                
+                p_UU = repmat(0.25, i, i); p_UD = p_UU; p_DU = p_UU; p_DD = p_UU;
+                
+                p_UU(mask) = p_UU_raw(mask) ./ sum_p(mask);
+                p_UD(mask) = p_UD_raw(mask) ./ sum_p(mask);
+                p_DU(mask) = p_DU_raw(mask) ./ sum_p(mask);
+                p_DD(mask) = p_DD_raw(mask) ./ sum_p(mask);
+        end
+        
+        V_next = squeeze(V(i+1, 1:i+1, 1:i+1));
+        
+        KU = repmat(ku, i, 1);
+        KD = repmat(kd, i, 1);
+        
+        idx_uu = sub2ind([i+1, i+1], ju, KU);
+        idx_ud = sub2ind([i+1, i+1], ju, KD);
+        idx_du = sub2ind([i+1, i+1], jd, KU);
+        idx_dd = sub2ind([i+1, i+1], jd, KD);
+        
+        V_UU = V_next(idx_uu) .* p_UU;
+        V_UD = V_next(idx_ud) .* p_UD;
+        V_DU = V_next(idx_du) .* p_DU;
+        V_DD = V_next(idx_dd) .* p_DD;
+        
+        df = df_HW(i, 1:i); 
+        
+        continuationValue = df .* (V_UU + V_UD + V_DU + V_DD); 
+        
+        V_current = max(max(K - S_cur, 0), continuationValue);
+        
+        V(i, 1:i, 1:i) = reshape(V_current, 1, i, i);
+        
+    end
+    
+    V0 = V(1, 1, 1);
+end
