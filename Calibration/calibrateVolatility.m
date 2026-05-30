@@ -6,7 +6,6 @@ r = -1/yearFrac * log(df);
 
 objective = @(sigma_opt) EuroPriceStochIR(F, T, sigma_opt, rho, kappa, sigma_r, K, df) - putBlack;
 
-vol_mkt = sigma_S;
-sigma = fzero(objective, vol_mkt);
+sigma = fzero(objective, sigma_S);
 
 end

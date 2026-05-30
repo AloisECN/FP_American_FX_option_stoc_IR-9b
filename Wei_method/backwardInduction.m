@@ -124,7 +124,7 @@
 %     V0 = V(1, 1, 1);
 % end
 
-%% VECTORIALIZED FUNCTION
+%% VECTORAIZED FUNCTION
 
 function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
     ku_r, jd_S, ju_S, df_HW, rho, sigma_r, sigma_S, h, method)

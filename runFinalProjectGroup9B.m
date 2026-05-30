@@ -34,7 +34,7 @@ yearFraction = yearfrac(refDate, maturities_dt, 3);
 r0    = -1/(1/365) * log(0.99998157);
 zeta0 = r0 / sigma_r;
 
-%% Shared parameters (used by both methods and by Point iii)
+%% Shared parameters (used by both methods and by Point iii))
 N     = 100;
 h     = TTM / N;
 t_nodes  = (0:N)*h;
@@ -42,17 +42,17 @@ treeDates = refDate + days(round(365 * t_nodes));
 
 K_atm    = S0;
 K_vec    = linspace(0.8 * S0, 1.2 * S0, 100);
-rho_new  = linspace(-0.99, 0.99, 50);
-N_vec    = [10, 25, 50, 75, 100, 150, 200, 300, 400, 500];
+rho_new  = linspace(-0.99, 0.98, 100);
+N_vec    = [10, 25, 50, 100, 150, 200, 250, 300, 400];
 
-% IR tree and discounts — needed by both methods and by Point iii
+% IR tree and discounts — needed by both methods and by Point iii)
 B0_nodes = getDiscountFactorByZeroRatesLinearInterp(refDate, treeDates, dates_dt, discounts);
 [x_tree, zeta_tree, kd_r, ku_r, p_r] = buildXtree(N, h, kappa, sigma_r, zeta0);
 df_HW    = fwdDiscounts_OU(x_tree, kappa, sigma_r, t_nodes, B0_nodes);
 Y0       = -rho * zeta0 / sqrt(1 - rho^2);
 
 %% Method selection
-method = input('Which method? 1: Wei  |  2: Robust  --> ');
+method = input('Choose the method: 1 --> Wei  |  2 --> Robust: ');
 
 if method == 1
 
@@ -78,8 +78,8 @@ if method == 1
         current_rho   = rho_new(i);
         Y0_current    = -current_rho * zeta0 / sqrt(1 - current_rho^2);
         
-        [S_tree_curr, jd_S_curr, ju_S_curr, p_hat_S_curr] = buildStree(N, h, kappa, sigma_S, sigma_r, ...
-                                                                        S0, Y0_current, current_rho, I, zeta_tree, yearFraction);
+        [S_tree_curr, jd_S_curr, ju_S_curr, p_hat_S_curr] = buildStree(N, ...
+            h, kappa, sigma_S, sigma_r, S0, Y0_current, current_rho, I, zeta_tree, yearFraction);
         
         prices_vs_rho(i) = backwardInduction(S_tree_curr, zeta_tree, N, K_atm, p_r, p_hat_S_curr, ...
             kd_r, ku_r, jd_S_curr, ju_S_curr, df_HW, current_rho, sigma_r, sigma_S, h, 'Wei');
@@ -131,7 +131,10 @@ if method == 1
     
     xlabel('Number of Time Steps (N)'); grid on;
     title('Convergence & Computational Cost vs N');
-else  % method == 2: Robust
+
+    plotErrorConvergence(N_vec, prices_vs_N, 'Wei');
+
+    else  % method == 2: Robust
 
     %% POINT ii)-a: American Put Price vs Strike (Robust)
     
@@ -218,9 +221,9 @@ else  % method == 2: Robust
     
     xlabel('Number of Time Steps (N)'); grid on;
     title('Robust - Convergence & Computational Cost vs N');
+
+    plotErrorConvergence(N_vec, prices_vs_N_rob, 'Robust');
 end
-
-
 
 %% POINT iii): Volatility Calibration & True American Pricing
 [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, sigma_r, ...
@@ -246,15 +249,34 @@ fprintf('Calibrated True Volatility (sigma_S): %.4f%%\n', sigma_S_calibrated * 1
 % 3. Reprice the American Option using the newly calibrated volatility
 fprintf('\nRepricing American Option with calibrated volatility (N = %d)...\n', N);
 
-% Rebuild FX Tree using sigma_S_calibrated instead of the raw market vol
-[S_tree_calib, jd_S_calib, ju_S_calib, p_hat_S_calib] = buildStree(N, h, kappa, sigma_S_calibrated,...
-    sigma_r, S0, Y0, rho, I, zeta_tree, yearFraction);
+switch method
+    case 1 % WEI Method
+        % Rebuild FX Tree using Wei orthogonalization
+        [S_tree_calib, jd_S_calib, ju_S_calib, p_hat_S_calib] = buildStree(N, h, kappa, sigma_S_calibrated,...
+            sigma_r, S0, Y0, rho, I, zeta_tree, yearFraction);
+            
+        % Execute backward induction for the American option on the new tree
+        americanPrice_calib = backwardInduction(S_tree_calib, x_tree, N, K_atm, p_r, p_hat_S_calib, ...
+                                                kd_r, ku_r, jd_S_calib, ju_S_calib, df_HW, ...
+                                                rho, sigma_r, sigma_S_calibrated, h, 'Wei');
+        methodName = 'Wei';
+        
+    case 2 % ROBUST Method (Appolloni et al.)
+        % Recalculate the spatial origin (U0) using the newly calibrated volatility
+        U0_calib = log(S0) / sigma_S_calibrated;
+        
+        % Rebuild FX Tree using the Robust clamped grid
+        [S_tree_calib, jd_S_calib, ju_S_calib, p_hat_S_calib] = buildStreeRobust(N, h, sigma_S_calibrated, U0_calib, df_HW);
+        
+        % Execute backward induction for the American option on the new tree
+        americanPrice_calib = backwardInduction(S_tree_calib, x_tree, N, K_atm, p_r, p_hat_S_calib, ...
+                                                kd_r, ku_r, jd_S_calib, ju_S_calib, df_HW, ...
+                                                rho, sigma_r, sigma_S_calibrated, h, 'Robust');
+        methodName = 'Robust';
+ end
 
-% Execute backward induction for the American option on the new tree
-americanPrice_calib = backwardInduction(S_tree_calib, x_tree, N, K_atm, p_r, p_hat_S_calib, ...
-                                        kd_r, ku_r, jd_S_calib, ju_S_calib, df_HW, ...
-                                        rho, sigma_r, sigma_S_calibrated, h, 'Wei');
-fprintf('American Option Price (CRR Tree):      %.6f\n', americanPrice_calib);
+% Dynamically print the result based on the chosen method
+fprintf('American Option Price (%s Tree): %.6f\n', methodName, americanPrice_calib);
 
 %% POINT iii) -d: Cost-of-Carry Parallel Shifts Analysis
 % Define the parallel shifts to be applied to the Cost-of-Carry 
@@ -263,7 +285,7 @@ shift = [-0.02, -0.01, 0.01, 0.02];
 price_am_shifted = zeros(size(shift));
 price_eur_shifted = zeros(size(shift));
 
-fprintf('\nShift (%%) | European | American | EEP\n');
+fprintf('\nShift (%%) | European | American\n');
 fprintf('------------------------------------------\n');
 
 for i = 1 : length(shift)
