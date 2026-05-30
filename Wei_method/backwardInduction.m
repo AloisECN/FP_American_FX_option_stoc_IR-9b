@@ -130,6 +130,29 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
     ku_r, jd_S, ju_S, df_HW, rho, sigma_r, sigma_S, h, method)
 % BACKWARDINDUCTION Prices an American FX Option using a Bivariate Tree.
 % Handles both the Standard 3D approach ('Wei') and the 2D Copula approach ('Robust').
+% BACKWARDINDUCTION Prices an American FX Option using a Bivariate Tree.
+% Handles both the Standard 3D approach ('Wei') and the 2D Copula approach ('Robust').
+%
+% INPUTS:
+%   S_tree  - FX rate spatial grid. 3D array (Wei) or 2D matrix (Robust).
+%   x_tree  - HW stochastic rate spatial grid. 2D matrix.
+%   N       - Number of time steps.
+%   K       - Strike price of the option.
+%   p_r     - Up-jump probabilities for the HW rate tree. 2D matrix.
+%   p_hat_S - Marginal up-jump probabilities for the FX tree. 3D array or 2D matrix.
+%   kd_r    - Down-jump indices for the HW rate tree. 2D matrix.
+%   ku_r    - Up-jump indices for the HW rate tree. 2D matrix.
+%   jd_S    - Down-jump indices for the FX tree. 3D array or 2D matrix.
+%   ju_S    - Up-jump indices for the FX tree. 3D array or 2D matrix.
+%   df_HW   - Local discount factors from the HW rate tree. 2D matrix.
+%   rho     - Correlation coefficient between FX and domestic rate.
+%   sigma_r - Volatility of the domestic interest rate.
+%   sigma_S - Volatility of the FX spot rate.
+%   h       - Time step size (dt).
+%   method  - String specifying the algorithm: 'Wei' or 'Robust'.
+%
+% OUTPUT:
+%   V0      - Scalar. The present value of the American option at time t=0.
 
     % Initialize the 3D tensor for option values
     V = NaN(N+1, N+1, N+1);

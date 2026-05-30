@@ -89,6 +89,25 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
 % using the Wei orthogonalization method.
 % It builds an auxiliary grid (Y) driven by the pure stochastic rate (zeta),
 % and adds the deterministic market forward curve (I) at the end.
+% % INPUTS:
+% %   N            - Number of time steps for the binomial tree discretization.
+% %   h            - Length of each time interval (dt = T/N).
+% %   kappa        - Mean reversion speed parameter of the Hull-White short rate process.
+% %   sigma_S      - Constant volatility of the Foreign Exchange (FX) rate process.
+% %   sigma_r      - Constant volatility of the domestic stochastic short rate process.
+% %   S0           - Initial spot FX rate (e.g., USD per 1 EUR).
+% %   Y0           - Initial value of the auxiliary orthogonalized process Y.
+% %   rho           - Correlation coefficient between the FX and short rate Brownian motions.
+% %   I            - Vector containing the pre-calculated deterministic forward curve integration components.
+% %   zeta_tree    - 2D matrix representing the discretized lattice of the transformed short rate process.
+% %   yearFrac     - Time structure vector associated with the market curve data points.
+% %   shift_amount - Optional scalar for yield curve parallel shifts.
+% %
+% % OUTPUTS:
+% %   S_tree       - 3D tensor [time, FX-node, short-rate-node] of reconstructed FX spot prices.
+% %   jd_S         - 3D tensor of lattice indices mapping the downward transitions on the Y-grid.
+% %   ju_S         - 3D tensor of lattice indices mapping the upward transitions on the Y-grid.
+% %   p_hat_S      - 3D tensor storing the risk-neutral transition probabilities for the FX component.
 
     if nargin < 12
         shift_amount = 0;
