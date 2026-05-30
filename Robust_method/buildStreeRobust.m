@@ -15,61 +15,53 @@ function [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, 
     
     i_grid = (0:N)';   
     j_grid = 0:N;      
-    
-    U_val = U0 + (2*j_grid - i_grid) * sqrt(h);
+    %Equation 16
+    U_val = U0 + (2*j_grid - i_grid) * sqrt(h); 
     
     S_tree_rob = zeros(N+1, N+1);
     valid_mask = (j_grid <= i_grid);
+    %Equation 17
     S_tree_rob(valid_mask) = exp(sigma_S * U_val(valid_mask));
 
     jd_S_rob = NaN(N+1, N+1, N+1);
     ju_S_rob = NaN(N+1, N+1, N+1);
     p_hat_S_rob = NaN(N+1, N+1, N+1);
 
+    %Semi-vectorised we still loop through the i bu do the N+1xN+1 matrix 
     for i = 1 : N
-        
-        % Extract the continuous rate directly from the local discount factor matrix.
+        %get constants for future computations
         r_t = -log(df_HW(i, 1:i)) / h;
-
-        % Calculate the exact risk-neutral expected future value (continuous).
         S_cur = S_tree_rob(i, 1:i)';
-        
-        % Implicit Expansion: Multiplying a Column (i x 1) by a Row (1 x i) 
-        % instantly generates the full (i x i) matrices for drift and threshold.
+        S_next = S_tree_rob(i+1, 1:i+1);
+        %Infer it from our model (! diferent from the paper !)
         drift = S_cur .* r_t;
         threshold = S_cur + drift * h;
-
-        % Extract the future physical nodes (1D array)
-        S_next = S_tree_rob(i+1, 1:i+1);
 
         % Since our grid is rigid, the 'threshold' falls between two predefined nodes.
         % Iterative 'find' is extremely slow on matrices. We use 'discretize' (binning)
         % to simultaneously map all (i x i) thresholds into their corresponding intervals.
         edges = [-Inf, S_next, Inf];
-        jd_mat = discretize(threshold, edges) - 1;
+        jd_mat = discretize(threshold, edges) - 1; 
+        %equation 18 & 19 vectorized
 
-        %  Boundary Clamping (Tail Truncation) 
-        % If an extreme interest rate shock pushes the expected FX value outside 
-        % the physical boundaries, we clamp the target to the outermost nodes.
-        jd_mat = max(1, min(i+1, jd_mat));
+        jd_mat = max(1, min(i+1, jd_mat)); 
         ju_mat = min(i+1, jd_mat + 1);
-        
-        % Exact edge-case corrections (replicating the original 'find' behavior)
-        ju_mat(threshold == S_next(jd_mat)) = jd_mat(threshold == S_next(jd_mat)); 
-        ju_mat(threshold < S_next(1)) = 1;       
+        % Line below hadles ju == jd edge case
+        ju_mat(threshold == S_next(jd_mat)) = jd_mat(threshold == S_next(jd_mat));
+        %Line below handles if the treshold is too low for the available nodes
+        ju_mat(threshold < S_next(1)) = 1;    
+         %Line below analgously handle the too high problm
         ju_mat(threshold > S_next(end)) = i+1;   
 
-        %  The Collapse Failsafe (ju = jd) 
         % Fetch the physical FX values corresponding to the jump indices
         S_jd = S_next(jd_mat);
         S_ju = S_next(ju_mat);
-        
         num = threshold - S_jd;
         den = S_ju - S_jd;
         
         % Preallocate the probability matrix with the dummy 0.5 probability.
         % This automatically handles the collapse failsafe where ju == jd, 
-        % preventing division by zero while preserving E[V] = V_down.
+        % preventing division by zero
         p_hat_mat = repmat(0.5, i, i);
         
         % Create a boolean mask where ceiling and floor are distinct nodes
@@ -77,9 +69,9 @@ function [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, 
         
         p_hat_mat(valid_jump) = num(valid_jump) ./ den(valid_jump);
         
-        % Clamp probabilities to [0, 1]
+        % Trasfrom the prob to acceptable ones
         p_hat_mat = max(0, min(1, p_hat_mat));
-
+        
         jd_S_rob(i, 1:i, 1:i) = reshape(jd_mat, [1, i, i]);
         ju_S_rob(i, 1:i, 1:i) = reshape(ju_mat, [1, i, i]);
         p_hat_S_rob(i, 1:i, 1:i) = reshape(p_hat_mat, [1, i, i]);
