@@ -29,7 +29,7 @@
 %         shift_amount = 0;
 %     end
 % 
-%     % --- 1. Auxiliary Y-Tree Initialization ---
+%     %  1. Auxiliary Y-Tree Initialization 
 %     % Rigid, symmetric grid based only on volatility (unit diffusion)
 %     Y_tree = NaN(N+1, N+1);
 %     for i = 1 : N + 1
@@ -42,7 +42,7 @@
 %     ju_S = NaN(N+1, N+1, N+1);
 %     p_hat_S = NaN(N+1, N+1, N+1);
 % 
-%     % --- 2. Lattice Mapping & Probabilities ---
+%     %  2. Lattice Mapping & Probabilities 
 %     for i = 1 : N
 %         for j = 1 : i
 %             for k = 1 : i
@@ -69,7 +69,7 @@
 %     I_ti = interp1(yearFrac, I, t_nodes, 'linear', 'extrap');
 %     I_ti = I_ti + (shift_amount * t_nodes);
 % 
-%     % --- 4. Final FX Spot Tree Reconstruction ---
+%     %  4. Final FX Spot Tree Reconstruction 
 %     % Recombine Y-grid, stochastic rate (zeta), and market curve (I_ti)
 %     for i = 1 : N + 1 
 %         for j = 1 : i
@@ -113,7 +113,7 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
         shift_amount = 0;
     end
     
-    % --- 1. Auxiliary Y-Tree Initialization VECTORIZED ---
+    %  1. Auxiliary Y-Tree Initialization VECTORIZED 
     % Rigid, symmetric grid based only on volatility (unit diffusion)
     % We replace the i and j loops with 2D grid generation
     i_grid = (1:N+1)'; % Column vector representing time indices
@@ -135,7 +135,7 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
     % Pre-calculate the constant scalar portion of the drift for efficiency
     drift_scalar = (1 / sqrt(1-rho^2)) * (sigma_r/sigma_S - rho*kappa);
     
-    % --- 2. Lattice Mapping & Probabilities VECTORIZED ---
+    %  2. Lattice Mapping & Probabilities VECTORIZED 
     % We keep only the time loop 'i', calculating entire (i x i) spatial planes at once
     for i = 1 : N
         
@@ -154,7 +154,7 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
         jd_mat = max(1, min(i, jd_mat)); 
         ju_mat = jd_mat + 1;
         
-        % --- Probability Computation ---
+        %  Probability Computation 
         % Extract current Y nodes (depends on j)
         Y_cur = Y_tree(i, 1:i)'; % Column vector (i x 1)
         
@@ -177,7 +177,7 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
         p_hat_S(i, 1:i, 1:i) = reshape(p_hat_mat, [1, i, i]);
     end
     
-    % --- 3. Market Integral Interpolation ---
+    %  3. Market Integral Interpolation 
     S_tree = NaN(N+1, N+1, N+1);
     t_nodes = (0:N) * h;
     
@@ -185,7 +185,7 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
     I_ti = interp1(yearFrac, I, t_nodes, 'linear', 'extrap');
     I_ti = I_ti + (shift_amount * t_nodes);
     
-    % --- 4. Final FX Spot Tree Reconstruction VECTORIZED ---
+    %  4. Final FX Spot Tree Reconstruction VECTORIZED 
     % Recombine Y-grid, stochastic rate (zeta), and market curve (I_ti)
     % We process the entire (i x i) spatial slice for each time step i
     for i = 1 : N + 1 

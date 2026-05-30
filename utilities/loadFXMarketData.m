@@ -17,14 +17,14 @@ function data = loadFXMarketData(filename)
     end
     sheet = 'Values';
     
-    % -- USD Discount Curve (G15:H25) ---------------------------------------
+    % -- USD Discount Curve (G15:H25) 
     T_disc         = readtable(filename, 'Sheet', sheet, 'Range', 'G15:H25', ...
                                'ReadVariableNames', false);
     data.dates     = T_disc{:, 1};
     data.discounts = T_disc{:, 2};
     data.refDate   = data.dates(1);
     
-    % -- Mid Forward Curve (G3:J12) -----------------------------------------
+    % -- Mid Forward Curve (G3:J12) --
     T_fwd              = readtable(filename, 'Sheet', sheet, 'Range', 'G3:J12', ...
                                    'ReadVariableNames', false);
     data.maturities    = T_fwd{:, 1};

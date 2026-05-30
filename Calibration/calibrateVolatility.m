@@ -23,7 +23,7 @@ function sigma = calibrateVolatility(F, yearFrac, sigma_S, rho, kappa, sigma_r, 
     % Convert the discount factor into an equivalent continuously compounded rate
     r = -1/yearFrac * log(df);
     
-    % --- 2. Compute Benchmark Market Price ---
+    %  2. Compute Benchmark Market Price 
     [~, putBlack]  = blkprice(F, K, r, T, sigma_S);
     
     objective = @(sigma_opt) EuroPriceStochIR(F, T, sigma_opt, rho, kappa, sigma_r, K, df) - putBlack;

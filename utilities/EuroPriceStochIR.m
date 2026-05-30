@@ -20,11 +20,11 @@ function price = EuroPriceStochIR(F, yearFrac, sigma_S, rho, kappa, sigma_r, K, 
 
     T = yearFrac;
     
-    % --- 1. Pre-compute exponential terms for the Hull-White integrals ---
+    %  1. Pre-compute exponential terms for the Hull-White integrals 
     exp_kT  = exp(-kappa * T);
     exp_2kT = exp(-2 * kappa * T);
     
-    % --- 2. Compute Integrated Variance Components ---
+    %  2. Compute Integrated Variance Components 
     % Pure Spot variance contribution
     var_S  = sigma_S^2 * T;
     
@@ -40,7 +40,7 @@ function price = EuroPriceStochIR(F, yearFrac, sigma_S, rho, kappa, sigma_r, K, 
     % Total standard deviation
     sqrt_Var = sqrt(Var); 
     
-    % --- 3. Black-like Pricing Formula ---
+    %  3. Black-like Pricing Formula 
     % Standard d1 and d2 components adapted for total integrated variance
     d1 = log(F / K) / sqrt_Var + 0.5 * sqrt_Var;
     d2 = d1 - sqrt_Var;

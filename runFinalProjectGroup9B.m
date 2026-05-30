@@ -47,8 +47,8 @@ method = input('Choose the method: 1 --> Wei  |  2 --> Robust: ');
 
 switch method
     
-    case 1 % --- WEI / STANDARD METHOD ---
-        fprintf('\n--- EXECUTING WEI METHOD ---\n');
+    case 1 %  WEI / STANDARD METHOD 
+        fprintf('\n EXECUTING WEI METHOD \n');
         
         %% POINT ii)-a: American Put Price vs Strike (Wei)
         % The tree structure does not depend on the strike price K.
@@ -86,7 +86,7 @@ switch method
         prices_vs_N         = zeros(size(N_vec));
         computational_times = zeros(size(N_vec));
         
-        fprintf('\n--- CONVERGENCE & PERFORMANCE ANALYSIS (WEI / STANDARD) ---\n');
+        fprintf('\n CONVERGENCE & PERFORMANCE ANALYSIS (WEI / STANDARD) \n');
         
         % As the number of steps N changes, the time step h changes as well.
         % We must completely reconstruct the timeline, the forward discounts, 
@@ -118,8 +118,8 @@ switch method
         plotErrorConvergence(N_vec, prices_vs_N, 'Wei');
         stimaOrdineConvergenza(N_vec, prices_vs_N);
 
-    case 2 % --- ROBUST METHOD (Appolloni et al.) ---
-        fprintf('\n--- EXECUTING ROBUST METHOD ---\n');
+    case 2 %  ROBUST METHOD (Appolloni et al.) 
+        fprintf('\n EXECUTING ROBUST METHOD \n');
         
         %% POINT ii)-a: American Put Price vs Strike (Robust)
         % Build the robust tree once, independently of the strike price K.
@@ -153,7 +153,7 @@ switch method
         prices_vs_N_rob = zeros(size(N_vec));
         times_rob       = zeros(size(N_vec));
         
-        fprintf('\n--- CONVERGENCE & PERFORMANCE ANALYSIS (ROBUST) ---\n');
+        fprintf('\n CONVERGENCE & PERFORMANCE ANALYSIS (ROBUST) \n');
         
         % Rebuilding the full architecture for each different N step size.
         for i = 1:length(N_vec)
@@ -193,7 +193,7 @@ df_2y = discounts(9);         % 0.97399953
 vol_mkt = 0.1048;             % 10.48% 
 K_atm = S0;                   % ATM-Spot
 
-fprintf('\n--- POINT iii: VOLATILITY CALIBRATION & REPRICING ---\n');
+fprintf('\n POINT iii: VOLATILITY CALIBRATION & REPRICING \n');
 fprintf('Target Market Volatility (Black): %.4f%%\n', vol_mkt * 100);
 
 r_cont = -log(df_2y) / TTM;
@@ -234,7 +234,7 @@ price_am_shifted = zeros(size(shift));
 price_eur_shifted = zeros(size(shift));
 
 fprintf('\nShift (%%) | European | American\n');
-fprintf('------------------------------------------\n');
+fprintf('\n');
 
 for i = 1 : length(shift)
     s = shift(i); 
@@ -249,7 +249,7 @@ for i = 1 : length(shift)
                                         rho, sigma_r, sigma_S_calibrated, h, 'Wei');
     
     
-    % --- 2. EUROPEAN OPTION (Analytical Method) ---
+    %  2. EUROPEAN OPTION (Analytical Method) 
     % the target Forward rate must be shifted consistently with the Cost-of-Carry.
     F_shifted = F_2y * exp(s * TTM);
     

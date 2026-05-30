@@ -9,7 +9,7 @@
 %     % Detect if the input FX tree is 2D (Robust method) or 3D (Wei method)
 %     isRobustMethod = ismatrix(S_tree); 
 % 
-%     % --- STEP 1: Terminal Payoff at Maturity (T) ---
+%     %  STEP 1: Terminal Payoff at Maturity (T) 
 %     for j = 1 : N+1
 %         for k = 1: N+1
 %             if isRobustMethod
@@ -22,7 +22,7 @@
 %         end
 %     end
 % 
-%     % --- STEP 2: Backward Induction Loop ---
+%     %  STEP 2: Backward Induction Loop 
 %     for i = N : -1 : 1
 %         for j = 1 : i
 %             for k = 1 : i
@@ -44,7 +44,7 @@
 %                     S_cur = S_tree(i, j, k);
 %                 end
 % 
-%                 % --- STEP 3: Compute Joint Probabilities ---
+%                 %  STEP 3: Compute Joint Probabilities 
 %                 switch method
 %                     case 'Wei'
 %                         % Assumption of zero correlation: joint prob is the product of marginals
@@ -86,7 +86,7 @@
 %                             q1 = ps * pr; 
 %                         end
 % 
-%                         % --- POSITIVITY CHECK: x---
+%                         %  POSITIVITY CHECK: x
 %                         % These bounds ensure all 4 derived joint probabilities remain >= 0
 %                         % without destroying the marginal probabilities (which govern the risk-neutral drift).
 %                         p_UU_min = max(0, ps + pr - 1);
@@ -104,7 +104,7 @@
 % 
 %                 end
 % 
-%                 % --- STEP 4: Discounting & Early Exercise ---
+%                 %  STEP 4: Discounting & Early Exercise 
 %                 % Compute the expected future value of the option
 %                 V_UU = V(i+1, ju, ku) * p_UU;
 %                 V_UD = V(i+1, ju, kd) * p_UD;
@@ -160,7 +160,7 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
     % Detect if the input FX tree is 2D (Robust method) or 3D (Wei method)
     isRobustMethod = ismatrix(S_tree); 
     
-    % --- STEP 1: Terminal Payoff at Maturity (T) VECTORIZED ---
+    %  STEP 1: Terminal Payoff at Maturity (T) VECTORIZED 
     % Eliminate the two nested loops (j and k) by calculating the entire V(N+1) slice at once
     if isRobustMethod
         % S_end becomes a column vector (N+1 x 1)
@@ -176,11 +176,11 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
     % Insert the slice into the tensor (using reshape to ensure 1xNxN dimensions)
     V(N+1, 1:N+1, 1:N+1) = reshape(V_end_slice, [1, N+1, N+1]);
     
-    % --- STEP 2: Backward Induction Loop ---
+    %  STEP 2: Backward Induction Loop 
     % Keep only the time step loop "i", computing the (i x i) matrices instantaneously
     for i = N : -1 : 1
         
-        % --- DATA EXTRACTION FOR STEP i ---
+        %  DATA EXTRACTION FOR STEP i 
         % 'squeeze' removes singleton dimensions, returning (i x i) matrices
         ps = squeeze(p_hat_S(i, 1:i, 1:i)); 
         jd = squeeze(jd_S(i, 1:i, 1:i));    
@@ -200,7 +200,7 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
             S_cur = squeeze(S_tree(i, 1:i, 1:i)); % Matrix (i x i)
         end
         
-        % --- STEP 3: Compute Joint Probabilities ---
+        %  STEP 3: Compute Joint Probabilities 
         switch method
             case 'Wei'
                 % Element-wise operations (.*) instantaneously compute probabilities for all (i x i) nodes
@@ -246,7 +246,7 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
                     q1(zero_D) = ps(zero_D) .* pr_mat(zero_D); 
                 end
                 
-                % --- VECTORIZED POSITIVITY CHECK ---
+                %  VECTORIZED POSITIVITY CHECK 
                 % These bounds ensure all 4 derived joint probabilities remain >= 0
                 p_UU_min = max(0, ps + pr_mat - 1);
                 p_UU_max = min(ps, pr_mat);
@@ -260,7 +260,7 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
                 p_DD = 1 - ps - pr_mat + p_UU;
         end
         
-        % --- STEP 4: Discounting & Early Exercise ---
+        %  STEP 4: Discounting & Early Exercise 
         % Extract the option slice from the future time step i+1
         V_next = squeeze(V(i+1, 1:i+1, 1:i+1)); % Matrix (i+1 x i+1)
         

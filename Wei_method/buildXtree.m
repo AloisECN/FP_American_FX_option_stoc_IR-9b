@@ -59,7 +59,7 @@ function [x_tree, zeta_tree, kd_r, ku_r, p_r] = buildXtree(N, h, kappa, sigma_r,
 %   ku_r      - 2D matrix of indices mapping the upward transitions on the tree.
 %   p_r       - 2D matrix storing the risk-neutral upward transition probabilities.
 
-    % --- 1. Normalized Grid (zeta_tree) Initialization VECTORIZED ---
+    %  1. Normalized Grid (zeta_tree) Initialization VECTORIZED 
     % We replace the nested loops with MATLAB's implicit expansion.
     % We create orthogonal vectors for time (i) and space (k).
     i_grid = (1:N+1)';  % Column vector for time dimension
@@ -74,12 +74,12 @@ function [x_tree, zeta_tree, kd_r, ku_r, p_r] = buildXtree(N, h, kappa, sigma_r,
     valid_nodes_mask = (k_grid <= i_grid);
     zeta_tree(valid_nodes_mask) = zeta_full(valid_nodes_mask);
 
-    % --- 2. Preallocate Arrays for Jumps and Probabilities ---
+    %  2. Preallocate Arrays for Jumps and Probabilities 
     kd_r = NaN(N+1, N+1);
     ku_r = NaN(N+1, N+1);
     p_r  = NaN(N+1, N+1);
 
-    % --- 3. Lattice Mapping & Probabilities VECTORIZED ---
+    %  3. Lattice Mapping & Probabilities VECTORIZED 
     % We eliminate the inner 'k' loop. We process an entire time step 'i' 
     % (a 1D array of nodes) in a single vectorized operation.
     for i = 1 : N
@@ -101,7 +101,7 @@ function [x_tree, zeta_tree, kd_r, ku_r, p_r] = buildXtree(N, h, kappa, sigma_r,
         % Upward jump is deterministically the node immediately above the downward jump
         ku_vec = kd_vec + 1;
 
-        % --- Probability Computation ---
+        %  Probability Computation 
         % Extract the whole row of zeta values at the NEXT time step (i+1)
         zeta_next = zeta_tree(i+1, 1:i+1);
         
@@ -121,7 +121,7 @@ function [x_tree, zeta_tree, kd_r, ku_r, p_r] = buildXtree(N, h, kappa, sigma_r,
         p_r(i, 1:i)  = p_r_vec;
     end
 
-    % --- 4. Final Stochastic Process (x_tree) ---
+    %  4. Final Stochastic Process (x_tree) 
     % Scale the normalized tree by the volatility to obtain the actual x_t process.
     % This is a simple scalar-matrix multiplication.
     x_tree = sigma_r * zeta_tree;
