@@ -116,7 +116,7 @@ switch method
         end
         
         plotErrorConvergence(N_vec, prices_vs_N, 'Wei');
-        stimaOrdineConvergenza(N_vec, prices_vs_N);
+        %stimaOrdineConvergenza(N_vec, prices_vs_N);
 
     case 2 %  ROBUST METHOD (Appolloni et al.) 
         fprintf('\n EXECUTING ROBUST METHOD \n');
@@ -181,7 +181,7 @@ switch method
         end
         
         plotErrorConvergence(N_vec, prices_vs_N_rob, 'Robust');
-        stimaOrdineConvergenza(N_vec, prices_vs_N_rob);
+        %stimaOrdineConvergenza(N_vec, prices_vs_N_rob);
         
 end
 

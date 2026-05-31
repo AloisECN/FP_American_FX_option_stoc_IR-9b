@@ -1,4 +1,4 @@
-function price = EuroPriceStochIR(F, yearFrac, sigma_S, rho, kappa, sigma_r, K, df)
+function price = EuroPriceStochIR(F, T, sigma_S, rho, kappa, sigma_r, K, df)
 % EUROPRICESTOCHIR Prices a European Put option with stochastic interest rates.
 % 
 % This function computes the closed-form price of a European Put option
@@ -7,7 +7,7 @@ function price = EuroPriceStochIR(F, yearFrac, sigma_S, rho, kappa, sigma_r, K, 
 %
 % INPUTS:
 %   F        - Forward price of the underlying asset at maturity T
-%   yearFrac - Time to maturity (T) in years
+%   T        - Time to maturity (T) in years
 %   sigma_S  - Volatility of the underlying spot asset
 %   rho      - Correlation between the spot asset and the interest rate
 %   kappa    - Mean reversion speed of the Hull-White interest rate model
@@ -17,8 +17,6 @@ function price = EuroPriceStochIR(F, yearFrac, sigma_S, rho, kappa, sigma_r, K, 
 %
 % OUTPUT:
 %   price    - Present value of the European Put option
-
-    T = yearFrac;
     
     %  1. Pre-compute exponential terms for the Hull-White integrals 
     exp_kT  = exp(-kappa * T);
@@ -36,16 +34,11 @@ function price = EuroPriceStochIR(F, yearFrac, sigma_S, rho, kappa, sigma_r, K, 
     
     % Total integrated variance under the T-forward measure
     Var = var_S + cov_Sr + var_r;
-    
-    % Total standard deviation
     sqrt_Var = sqrt(Var); 
     
     %  3. Black-like Pricing Formula 
-    % Standard d1 and d2 components adapted for total integrated variance
     d1 = log(F / K) / sqrt_Var + 0.5 * sqrt_Var;
     d2 = d1 - sqrt_Var;
-    
-    % European Put Option price (discounted expected payoff under forward measure)
     price = df * (K * normcdf(-d2) - F * normcdf(-d1));
     
 end

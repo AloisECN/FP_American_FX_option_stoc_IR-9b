@@ -150,14 +150,14 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
         continuationValue = df_mat .* (V_UU_val + V_UD_val + V_DU_val + V_DD_val);
         
         % Apply American early exercise boundary constraint
-        % S_cur (column or matrix) is implicitly expanded against K, and max() handles the whole grid
+       
         V_curr = max(max(K - S_cur, 0), continuationValue);
         
         % Save results into the 3D tensor
         V(i, 1:i, 1:i) = reshape(V_curr, [1, i, i]);
     end
     
-    % The root node contains the present value of the option
+    % Final Price
     V0 = V(1, 1, 1);
 end
 
