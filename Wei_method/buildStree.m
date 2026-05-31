@@ -1,86 +1,3 @@
-% function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
-%                    sigma_r, S0, Y0, rho, I, zeta_tree, yearFrac, shift_amount)
-% % BUILDSTREE Constructs the bivariate binomial lattice for the FX underlying
-% % using the Wei orthogonalization method.
-% % It builds an auxiliary grid (Y) driven by the pure stochastic rate (zeta),
-% % and adds the deterministic market forward curve (I) at the end.
-% %
-% % INPUTS:
-% %   N            - Number of time steps for the binomial tree discretization.
-% %   h            - Length of each time interval (dt = T/N).
-% %   kappa        - Mean reversion speed parameter of the Hull-White short rate process.
-% %   sigma_S      - Constant volatility of the Foreign Exchange (FX) rate process.
-% %   sigma_r      - Constant volatility of the domestic stochastic short rate process.
-% %   S0           - Initial spot FX rate (e.g., USD per 1 EUR).
-% %   Y0           - Initial value of the auxiliary orthogonalized process Y.
-% %   rho           - Correlation coefficient between the FX and short rate Brownian motions.
-% %   I            - Vector containing the pre-calculated deterministic forward curve integration components.
-% %   zeta_tree    - 2D matrix representing the discretized lattice of the transformed short rate process.
-% %   yearFrac     - Time structure vector associated with the market curve data points.
-% %   shift_amount - Optional scalar for yield curve parallel shifts.
-% %
-% % OUTPUTS:
-% %   S_tree       - 3D tensor [time, FX-node, short-rate-node] of reconstructed FX spot prices.
-% %   jd_S         - 3D tensor of lattice indices mapping the downward transitions on the Y-grid.
-% %   ju_S         - 3D tensor of lattice indices mapping the upward transitions on the Y-grid.
-% %   p_hat_S      - 3D tensor storing the risk-neutral transition probabilities for the FX component.
-% 
-%     if nargin < 12
-%         shift_amount = 0;
-%     end
-% 
-%     %  1. Auxiliary Y-Tree Initialization 
-%     % Rigid, symmetric grid based only on volatility (unit diffusion)
-%     Y_tree = NaN(N+1, N+1);
-%     for i = 1 : N + 1
-%         for j = 1 : i
-%             Y_tree(i, j) = Y0 + (2*(j - 1) - (i - 1))*sqrt(h);  
-%         end
-%     end
-% 
-%     jd_S = NaN(N+1, N+1, N+1);
-%     ju_S = NaN(N+1, N+1, N+1);
-%     p_hat_S = NaN(N+1, N+1, N+1);
-% 
-%     %  2. Lattice Mapping & Probabilities 
-%     for i = 1 : N
-%         for j = 1 : i
-%             for k = 1 : i
-% 
-%                 drift = (1 / sqrt(1-rho^2)) * (sigma_r/sigma_S - rho*kappa) * zeta_tree(i, k);
-% 
-%                 % Node mapping with boundary failsafes
-%                 jd_S(i, j, k) = j + floor((1 + sqrt(h) * drift)/2);
-%                 jd_S(i, j, k) = max(1, min(i, jd_S(i, j, k))); 
-%                 ju_S(i, j, k) = jd_S(i, j, k) + 1;
-% 
-%                 % Marginal probabilities clamped to [0, 1]
-%                 num = drift*h + Y_tree(i, j) - Y_tree(i+1, jd_S(i, j, k));
-%                 den = 2*sqrt(h);
-%                 p_hat_S(i, j, k) = max(0, min(1, num/den));
-%             end
-%         end
-%     end
-% 
-%     S_tree = NaN(N+1, N+1, N+1);
-%     t_nodes = (0:N) * h;
-% 
-%     % Interpolate the market integral I(t) to match lattice time-steps
-%     I_ti = interp1(yearFrac, I, t_nodes, 'linear', 'extrap');
-%     I_ti = I_ti + (shift_amount * t_nodes);
-% 
-%     %  4. Final FX Spot Tree Reconstruction 
-%     % Recombine Y-grid, stochastic rate (zeta), and market curve (I_ti)
-%     for i = 1 : N + 1 
-%         for j = 1 : i
-%             for k = 1 : i
-%                 S_tree(i, j, k) = S0 * exp(sigma_S * (sqrt(1-rho^2) * Y_tree(i, j) ...
-%                     + rho * zeta_tree(i, k)) + I_ti(i) - (sigma_S^2 / 2) * t_nodes(i));
-%             end
-%         end
-%     end
-% end
-
 %% Vectorialized function
 
 function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
@@ -205,3 +122,88 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
         S_tree(i, 1:i, 1:i) = reshape(S_slice, [1, i, i]);
     end
 end
+
+% Lgacy non vectorised version 
+%
+% function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
+%                    sigma_r, S0, Y0, rho, I, zeta_tree, yearFrac, shift_amount)
+% % BUILDSTREE Constructs the bivariate binomial lattice for the FX underlying
+% % using the Wei orthogonalization method.
+% % It builds an auxiliary grid (Y) driven by the pure stochastic rate (zeta),
+% % and adds the deterministic market forward curve (I) at the end.
+% %
+% % INPUTS:
+% %   N            - Number of time steps for the binomial tree discretization.
+% %   h            - Length of each time interval (dt = T/N).
+% %   kappa        - Mean reversion speed parameter of the Hull-White short rate process.
+% %   sigma_S      - Constant volatility of the Foreign Exchange (FX) rate process.
+% %   sigma_r      - Constant volatility of the domestic stochastic short rate process.
+% %   S0           - Initial spot FX rate (e.g., USD per 1 EUR).
+% %   Y0           - Initial value of the auxiliary orthogonalized process Y.
+% %   rho           - Correlation coefficient between the FX and short rate Brownian motions.
+% %   I            - Vector containing the pre-calculated deterministic forward curve integration components.
+% %   zeta_tree    - 2D matrix representing the discretized lattice of the transformed short rate process.
+% %   yearFrac     - Time structure vector associated with the market curve data points.
+% %   shift_amount - Optional scalar for yield curve parallel shifts.
+% %
+% % OUTPUTS:
+% %   S_tree       - 3D tensor [time, FX-node, short-rate-node] of reconstructed FX spot prices.
+% %   jd_S         - 3D tensor of lattice indices mapping the downward transitions on the Y-grid.
+% %   ju_S         - 3D tensor of lattice indices mapping the upward transitions on the Y-grid.
+% %   p_hat_S      - 3D tensor storing the risk-neutral transition probabilities for the FX component.
+% 
+%     if nargin < 12
+%         shift_amount = 0;
+%     end
+% 
+%     %  1. Auxiliary Y-Tree Initialization 
+%     % Rigid, symmetric grid based only on volatility (unit diffusion)
+%     Y_tree = NaN(N+1, N+1);
+%     for i = 1 : N + 1
+%         for j = 1 : i
+%             Y_tree(i, j) = Y0 + (2*(j - 1) - (i - 1))*sqrt(h);  
+%         end
+%     end
+% 
+%     jd_S = NaN(N+1, N+1, N+1);
+%     ju_S = NaN(N+1, N+1, N+1);
+%     p_hat_S = NaN(N+1, N+1, N+1);
+% 
+%     %  2. Lattice Mapping & Probabilities 
+%     for i = 1 : N
+%         for j = 1 : i
+%             for k = 1 : i
+% 
+%                 drift = (1 / sqrt(1-rho^2)) * (sigma_r/sigma_S - rho*kappa) * zeta_tree(i, k);
+% 
+%                 % Node mapping with boundary failsafes
+%                 jd_S(i, j, k) = j + floor((1 + sqrt(h) * drift)/2);
+%                 jd_S(i, j, k) = max(1, min(i, jd_S(i, j, k))); 
+%                 ju_S(i, j, k) = jd_S(i, j, k) + 1;
+% 
+%                 % Marginal probabilities clamped to [0, 1]
+%                 num = drift*h + Y_tree(i, j) - Y_tree(i+1, jd_S(i, j, k));
+%                 den = 2*sqrt(h);
+%                 p_hat_S(i, j, k) = max(0, min(1, num/den));
+%             end
+%         end
+%     end
+% 
+%     S_tree = NaN(N+1, N+1, N+1);
+%     t_nodes = (0:N) * h;
+% 
+%     % Interpolate the market integral I(t) to match lattice time-steps
+%     I_ti = interp1(yearFrac, I, t_nodes, 'linear', 'extrap');
+%     I_ti = I_ti + (shift_amount * t_nodes);
+% 
+%     %  4. Final FX Spot Tree Reconstruction 
+%     % Recombine Y-grid, stochastic rate (zeta), and market curve (I_ti)
+%     for i = 1 : N + 1 
+%         for j = 1 : i
+%             for k = 1 : i
+%                 S_tree(i, j, k) = S0 * exp(sigma_S * (sqrt(1-rho^2) * Y_tree(i, j) ...
+%                     + rho * zeta_tree(i, k)) + I_ti(i) - (sigma_S^2 / 2) * t_nodes(i));
+%             end
+%         end
+%     end
+% end
