@@ -26,7 +26,7 @@ r0    = -1/(1/365) * log(discounts(2));
 zeta0 = r0 / sigma_r;
 
 %% Shared parameters (used by both methods and by Point iii))
-N     = 100;
+N     = 500;
 h     = TTM / N;
 t_nodes  = (0:N)*h;
 treeDates = refDate + days(round(365 * t_nodes));
@@ -48,7 +48,7 @@ method = input('Choose the method: 1 --> Wei  |  2 --> Robust: ');
 switch method
     
     case 1 %  WEI / STANDARD METHOD 
-        fprintf('\n --- EXECUTING WEI METHOD --- \n');
+        fprintf('\n EXECUTING WEI METHOD \n');
         
         %% POINT ii)-a: American Put Price vs Strike (Wei)
         % The tree structure does not depend on the strike price K.
@@ -86,7 +86,7 @@ switch method
         prices_vs_N         = zeros(size(N_vec));
         computational_times = zeros(size(N_vec));
         
-        fprintf('\n --- CONVERGENCE & PERFORMANCE ANALYSIS (WEI / STANDARD) --- \n');
+        fprintf('\n CONVERGENCE & PERFORMANCE ANALYSIS (WEI / STANDARD) \n');
         
         % As the number of steps N changes, the time step h changes as well.
         % We must completely reconstruct the timeline, the forward discounts, 
@@ -115,7 +115,6 @@ switch method
             fprintf('N = %d \t| Price = %.6f \t| Time = %.3f sec\n', cur_N, prices_vs_N(i), computational_times(i));
         end
         
-        plotPrecisionVsTime(N_vec, prices_vs_N, computational_times, 'Wei');
         plotErrorConvergence(N_vec, prices_vs_N, 'Wei');
 
     case 2 %  ROBUST METHOD (Appolloni et al.) 
@@ -180,8 +179,8 @@ switch method
             fprintf('N = %d \t| Robust Price = %.6f \t| Time = %.3f sec\n', cur_N, prices_vs_N_rob(i), times_rob(i));
         end
         
-        plotPrecisionVsTime(N_vec, prices_vs_N_rob, times_rob, 'Robust');
         plotErrorConvergence(N_vec, prices_vs_N_rob, 'Robust');
+        
 end
 
 %% POINT iii): Volatility Calibration & True American Pricing
