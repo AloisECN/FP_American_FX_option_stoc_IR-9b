@@ -1,7 +1,7 @@
 %% VECTORAIZED FUNCTION
 
 function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
-    ku_r, jd_S, ju_S, df_HW, rho, sigma_r, sigma_S, h, method)
+    ku_r, jd_S, ju_S, df_HW, rho, sigma_r, sigma_S, h, method, exerciseStyle)
 % BACKWARDINDUCTION Prices an American FX Option using a Bivariate Tree.
 % Handles both the Standard 3D approach ('Wei') and the 2D Copula approach ('Robust').
 % BACKWARDINDUCTION Prices an American FX Option using a Bivariate Tree.
@@ -27,7 +27,9 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
 %
 % OUTPUT:
 %   V0      - Scalar. The present value of the American option at time t=0.
-
+    if nargin < 17
+        exerciseStyle = 'American';
+    end
     % Initialize the 3D tensor for option values
     V = NaN(N+1, N+1, N+1);
     
@@ -151,7 +153,19 @@ function V0 = backwardInduction(S_tree, x_tree, N, K, p_r, p_hat_S, kd_r,...
         
         % Apply American early exercise boundary constraint
        
-        V_curr = max(max(K - S_cur, 0), continuationValue);
+        % Apply exercise style
+        switch lower(exerciseStyle)
+            case 'american'
+                % American put: can exercise early
+                V_curr = max(max(K - S_cur, 0), continuationValue);
+
+            case 'european'
+                % European put: no early exercise before maturity
+                V_curr = continuationValue;
+
+            otherwise
+                error('exerciseStyle must be either American or European.');
+        end
         
         % Save results into the 3D tensor
         V(i, 1:i, 1:i) = reshape(V_curr, [1, i, i]);
