@@ -21,20 +21,21 @@ TTM = yearfrac(refDate, maturity_target, 3);
 
 yearFraction = yearfrac(refDate, maturities_dt, 3);
 [costOfCarry, I] = calibrateCostOfCarry(yearFraction, fwd_mid_curve, S0, sigma_r, kappa);
+plotCostOfCarry(yearFraction, costOfCarry);
 
 r0    = -1/(1/365) * log(discounts(2));
 zeta0 = r0 / sigma_r;
 
 %% Shared parameters (used by both methods and by Point iii))
-N     = 100;
+N     = 300;
 h     = TTM / N;
 t_nodes  = (0:N)*h;
 treeDates = refDate + days(round(365 * t_nodes));
 
 K_atm    = S0;
 K_vec    = linspace(0.8 * S0, 1.2 * S0, 100);
-rho_new  = linspace(-0.99, 0.98, 100);
-N_vec    = [10, 25, 50, 100, 150, 200, 250, 300, 400];
+rho_new  = linspace(-0.99, 0.99, 100);
+N_vec    = [10, 25, 50, 100, 150, 200, 250, 300, 400, 500];
 
 % IR tree and discounts — needed by both methods
 B0_nodes = getDiscountFactorByZeroRatesLinearInterp(refDate, treeDates, dates_dt, discounts);
@@ -119,13 +120,13 @@ switch method
         plotErrorConvergence(N_vec, prices_vs_N, 'Wei');
 
     case 2 %  ROBUST METHOD (Appolloni et al.) 
-        fprintf('\n EXECUTING ROBUST METHOD \n');
+        fprintf('\n --- EXECUTING ROBUST METHOD ---\n');
         
         %% POINT ii)-a: American Put Price vs Strike (Robust)
         % Build the robust tree once, independently of the strike price K.
         U0 = log(S0) / sigma_S;
-        [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, sigma_S, U0, df_HW);
-        
+        [S_tree_rob, jd_S_rob, ju_S_rob, p_hat_S_rob] = buildStreeRobust(N, h, sigma_S, U0, x_tree, I, yearFraction);
+        %%
         prices_vs_K_rob = zeros(size(K_vec));
         for idx = 1:length(K_vec)
             prices_vs_K_rob(idx) = backwardInduction(S_tree_rob, x_tree, N, K_vec(idx), p_r, p_hat_S_rob, ...
@@ -169,7 +170,7 @@ switch method
             df_HW_curr = fwdDiscounts_OU(x_curr, kappa, sigma_r, t_nodes_curr, B0_curr);
             
             U0_curr = log(S0) / sigma_S;
-            [S_rob_c, jd_c, ju_c, p_hat_c] = buildStreeRobust(cur_N, cur_h, sigma_S, U0_curr, df_HW_curr);
+            [S_rob_c, jd_c, ju_c, p_hat_c] = buildStreeRobust(cur_N, cur_h, sigma_S, U0_curr, x_curr, I, yearFraction);
             
             prices_vs_N_rob(i) = backwardInduction(S_rob_c, x_curr, cur_N, K_atm, p_r_curr, p_hat_c, ...
                                            kd_r_curr, ku_r_curr, jd_c, ju_c, df_HW_curr, ...
@@ -185,8 +186,7 @@ switch method
 end
 
 %% POINT iii): Volatility Calibration & True American Pricing
-[S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, sigma_r, ...
-                                            S0, Y0, rho, I, zeta_tree, yearFraction);
+
 F_2y = fwd_mid_curve(9);      % 1.17480
 df_2y = discounts(9);         % 0.97399953
 vol_mkt = 0.1048;             % 10.48% 
@@ -216,7 +216,7 @@ switch method
     case 2 % ROBUST Method (Appolloni et al.)
         U0_calib = log(S0) / sigma_S_calibrated;
         
-        [S_tree_calib, jd_S_calib, ju_S_calib, p_hat_S_calib] = buildStreeRobust(N, h, sigma_S_calibrated, U0_calib, df_HW);
+        [S_tree_calib, jd_S_calib, ju_S_calib, p_hat_S_calib] = buildStreeRobust(N, h, sigma_S_calibrated, U0_calib, x_tree, I, yearFraction);
         
         americanPrice_calib = backwardInduction(S_tree_calib, x_tree, N, K_atm, p_r, p_hat_S_calib, ...
                                                 kd_r, ku_r, jd_S_calib, ju_S_calib, df_HW, ...
@@ -235,27 +235,56 @@ price_eur_shifted = zeros(size(shift));
 fprintf('\nShift (%%) | European | American\n');
 fprintf('\n');
 
-for i = 1 : length(shift)
-    s = shift(i); 
-    
-    % The function internally adjusts the integral of the Cost-of-Carry (drift).
-    [S_tree_shifted, jd_S_shifted, ju_S_shifted, p_hat_S_shifted] = buildStree(N, h, kappa, ...
-        sigma_S_calibrated, sigma_r, S0, Y0, rho, I, zeta_tree, yearFraction, s);
-        
-    % Price the American Put option using the newly shifted tree
-    price_am_shifted(i) = backwardInduction(S_tree_shifted, x_tree, N, K_atm, p_r, p_hat_S_shifted, ...
-                                        kd_r, ku_r, jd_S_shifted, ju_S_shifted, df_HW, ...
-                                        rho, sigma_r, sigma_S_calibrated, h, 'Wei');
-    
-    
-    %  2. EUROPEAN OPTION (Analytical Method) 
-    % the target Forward rate must be shifted consistently with the Cost-of-Carry.
-    F_shifted = F_2y * exp(s * TTM);
-    
-    % Compute the closed-form European Put price using the shifted Forward
-    price_eur_shifted(i) = EuroPriceStochIR(F_shifted, TTM, sigma_S_calibrated,...
-                                            rho, kappa, sigma_r, K_atm, df_2y);
-                                            
-   fprintf('Shift = %+3.0f%% \t| Eur Price = %.5f \t| Am Price = %.5f\n', ...
-        s * 100, price_eur_shifted(i), price_am_shifted(i));
+switch method
+    case 1
+        for i = 1 : length(shift)
+            s = shift(i); 
+            
+            % The function internally adjusts the integral of the Cost-of-Carry (drift).
+            [S_tree_shifted, jd_S_shifted, ju_S_shifted, p_hat_S_shifted] = buildStree(N, h, kappa, sigma_S_calibrated, ...
+                           sigma_r, S0, Y0, rho, I, zeta_tree, yearFraction, s);
+                
+            % Price the American Put option using the newly shifted tree
+            price_am_shifted(i) = backwardInduction(S_tree_shifted, x_tree, N, K_atm, p_r, p_hat_S_shifted, ...
+                                                kd_r, ku_r, jd_S_shifted, ju_S_shifted, df_HW, ...
+                                                rho, sigma_r, sigma_S_calibrated, h, 'Wei');
+            
+            
+            %  2. EUROPEAN OPTION (Analytical Method) 
+            % the target Forward rate must be shifted consistently with the Cost-of-Carry.
+            F_shifted = F_2y * exp(s * TTM);
+            
+            % Compute the closed-form European Put price using the shifted Forward
+            price_eur_shifted(i) = EuroPriceStochIR(F_shifted, TTM, sigma_S_calibrated,...
+                                                    rho, kappa, sigma_r, K_atm, df_2y);
+                                                    
+            fprintf('Shift = %+3.0f%% \t| Eur Price = %.5f \t| Am Price = %.5f\n', ...
+                s * 100, price_eur_shifted(i), price_am_shifted(i));
+        end
+
+    case 2
+        for i = 1 : length(shift)
+            s = shift(i); 
+            
+            % The function internally adjusts the integral of the Cost-of-Carry (drift).
+            [S_tree_shifted, jd_S_shifted, ju_S_shifted, p_hat_S_shifted] = buildStreeRobust(N, h, sigma_S_calibrated, U0, x_tree, I, yearFraction, s);       
+            % Price the American Put option using the newly shifted tree
+            price_am_shifted(i) = backwardInduction(S_tree_shifted, x_tree, N, K_atm, p_r, p_hat_S_shifted, ...
+                                                kd_r, ku_r, jd_S_shifted, ju_S_shifted, df_HW, ...
+                                                rho, sigma_r, sigma_S_calibrated, h, 'Robust');
+            
+            
+            %  2. EUROPEAN OPTION (Analytical Method) 
+            % the target Forward rate must be shifted consistently with the Cost-of-Carry.
+            F_shifted = F_2y * exp(s * TTM);
+            
+            % Compute the closed-form European Put price using the shifted Forward
+            price_eur_shifted(i) = EuroPriceStochIR(F_shifted, TTM, sigma_S_calibrated,...
+                                                    rho, kappa, sigma_r, K_atm, df_2y);
+                                                    
+            fprintf('Shift = %+3.0f%% \t| Eur Price = %.5f \t| Am Price = %.5f\n', ...
+                s * 100, price_eur_shifted(i), price_am_shifted(i));
+        end
 end
+
+

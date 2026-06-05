@@ -27,7 +27,7 @@ function price = EuroPriceStochIR(F, T, sigma_S, rho, kappa, sigma_r, K, df)
     var_S  = sigma_S^2 * T;
     
     % Covariance contribution between Spot and Interest Rate
-    cov_Sr = -2 * rho * sigma_S * (sigma_r / kappa) * (T - (1 - exp_kT) / kappa);
+    cov_Sr = 2 * rho * sigma_S * (sigma_r / kappa) * (T - (1 - exp_kT) / kappa);
     
     % Pure Interest Rate variance contribution (Hull-White integrated variance)
     var_r  = (sigma_r / kappa)^2 * (T - (2 / kappa) * (1 - exp_kT) + (1 / (2 * kappa)) * (1 - exp_2kT));

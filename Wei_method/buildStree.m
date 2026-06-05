@@ -50,7 +50,7 @@ function [S_tree, jd_S, ju_S, p_hat_S] = buildStree(N, h, kappa, sigma_S, ...
     p_hat_S = NaN(N+1, N+1, N+1);
     
     % Pre-calculate the constant scalar portion of the drift for efficiency
-    drift_scalar = (1 / sqrt(1-rho^2)) * (sigma_r/sigma_S - rho*kappa);
+    drift_scalar = (1 / sqrt(1-rho^2)) * (sigma_r/sigma_S + rho*kappa);
     
     %  2. Lattice Mapping & Probabilities VECTORIZED 
     % We keep only the time loop 'i', calculating entire (i x i) spatial planes at once
@@ -174,7 +174,7 @@ end
 %         for j = 1 : i
 %             for k = 1 : i
 % 
-%                 drift = (1 / sqrt(1-rho^2)) * (sigma_r/sigma_S - rho*kappa) * zeta_tree(i, k);
+%                 drift = (1 / sqrt(1-rho^2)) * (sigma_r/sigma_S + rho*kappa) * zeta_tree(i, k);
 % 
 %                 % Node mapping with boundary failsafes
 %                 jd_S(i, j, k) = j + floor((1 + sqrt(h) * drift)/2);
